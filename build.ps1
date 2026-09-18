@@ -1,4 +1,4 @@
-﻿# ShortFilm 手动构建脚本（Windows 本机）
+﻿﻿# ShortFilm 手动构建脚本（Windows 本机）
 # 用法：.\build.ps1 [-Target msi|nsis|all] [-SkipSidecar]
 # 说明：本机只能构建 Windows 包；macOS/Linux 包必须在对应系统上跑 build.sh。
 param(
@@ -21,7 +21,7 @@ if (-not $SkipSidecar) {
 
 # 2. 构建
 Write-Host "开始构建 Windows 包（target=$Target）……" -ForegroundColor Cyan
-cargo tauri build --bundles $Target
+cargo tauri build --bundles msi,nsis
 if ($LASTEXITCODE -ne 0) { Write-Error "构建失败" }
 
 # 3. 产物清单
