@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>ShortFilm · SenseAudio 短片生成</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI","Microsoft YaHei",sans-serif; background:#0f1115; color:#e6e8ee; }
+  header { padding:14px 20px; background:#151821; border-bottom:1px solid #232838; display:flex; gap:12px; align-items:center; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  header .spacer { flex:1; }
+  main { padding:20px; display:grid; grid-template-columns: 380px 1fr; gap:20px; max-width:1400px; margin:0 auto; }
+  .card { background:#151821; border:1px solid #232838; border-radius:10px; padding:16px; }
+  .card h2 { font-size:13px; margin:0 0 12px; color:#9aa3b5; text-transform:uppercase; letter-spacing:.5px; }
+  label { display:block; font-size:12px; color:#9aa3b5; margin:10px 0 4px; }
+  input[type=text], textarea, select {
+    width:100%; background:#0f1115; border:1px solid #2a3042; color:#e6e8ee;
+    border-radius:6px; padding:8px 10px; font-size:13px; font-family:inherit;
+  }
+  textarea { resize:vertical; min-height:64px; }
+  button {
+    background:#4f7cff; color:#fff; border:0; border-radius:6px; padding:8px 14px;
+    font-size:13px; cursor:pointer; margin:4px 4px 4px 0;
+  }
+  button:hover { background:#3d6aef; }
+  button:disabled { background:#2a3042; color:#7a8194; cursor:not-allowed; }
+  button.ghost { background:#232838; }
+  button.success { background:#2ea86b; }
+  .row { display:flex; gap:8px; }
+  .row > * { flex:1; }
+  .shot { border:1px solid #232838; border-radius:8px; padding:10px; margin-bottom:10px; background:#11141c; }
+  .shot .head { display:flex; gap:8px; align-items:center; font-size:12px; color:#9aa3b5; }
+  .badge { padding:2px 8px; border-radius:10px; font-size:11px; }
+  .badge.pending { background:#2a3042; color:#9aa3b5; }
+  .badge.running { background:#4f7cff; color:#fff; }
+  .badge.done { background:#2ea86b; color:#fff; }
+  .badge.failed { background:#d64545; color:#fff; }
+  #log { font-family:Consolas,monospace; font-size:11px; height:180px; overflow-y:auto;
+         background:#0a0c10; border:1px solid #232838; border-radius:6px; padding:8px; margin-top:10px; }
+  .ref-imgs { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .ref-imgs .tag { background:#232838; border-radius:4px; padding:2px 6px; font-size:11px; color:#9aa3b5; }
+  #result video { width:100%; border-radius:8px; margin-top:10px; }
+  .muted { color:#7a8194; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎬 ShortFilm</h1>
+  <span class="muted">SenseAudio 开放平台 · Seedance 2.0</span>
+  <div class="spacer"></div>
+  <button class="ghost" id="btnKey">API Key</button>
+</header>
+<main>
+  <section>
+    <div class="card">
+      <h2>1. 故事设定</h2>
+      <label>片名</label>
+      <input type="text" id="title" value="我的短片">
+      <label>故事梗概</label>
+      <textarea id="synopsis" placeholder="例如：女孩在毕业前夜，回到童年老宅，与记忆中的自己和解。"></textarea>
+      <label>人物（每行：名字 | 外观描述 | 音色(可选)）</label>
+      <textarea id="characters" placeholder="小雨 | 二十岁女生，黑色长发，米色风衣 | tongtong&#10;阿远 | 二十岁男生，短碎发，白色卫衣"></textarea>
+      <div class="row">
+        <div>
+          <label>镜头数</label>
+          <input type="text" id="shotCount" value="10">
+        </div>
+        <div>
+          <label>单镜秒数</label>
+          <input type="text" id="shotSeconds" value="6">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>宽高比</label>
+          <select id="ratio">
+            <option value="16:9">16:9 横屏</option>
+            <option value="9:16">9:16 竖屏</option>
+            <option value="1:1">1:1</option>
+          </select>
+        </div>
+        <div>
+          <label>分辨率</label>
+          <select id="resolution">
+            <option value="720p">720p</option>
+            <option value="1080p">1080p</option>
+            <option value="480p">480p</option>
+          </select>
+        </div>
+      </div>
+      <label>BGM 风格（可选）</label>
+      <input type="text" id="music" placeholder="轻柔钢琴曲，安静治愈">
+      <div style="margin-top:12px">
+        <button class="ghost" id="btnRefreshModels">↻ 刷新模型列表</button>
+        <div class="row" style="margin-top:8px">
+          <div><label>分镜/文案 LLM</label><select id="llmModel"></select></div>
+          <div><label>分镜图模型</label><select id="imageModel"></select></div>
+        </div>
+        <div class="row">
+          <div><label>视频模型</label><select id="videoModel"></select></div>
+          <div><label>分镜图尺寸</label><select id="imageSize">
+            <option value="1344x768">1344x768 (16:9)</option>
+            <option value="768x1344">768x1344 (9:16)</option>
+            <option value="1024x1024">1024x1024</option>
+          </select></div>
+        </div>
+        <div class="muted" style="margin-top:4px">模型从 /v1/models 动态拉取，上游更换后点「刷新」即可，无需升级应用。</div>
+      </div>
+      <div style="margin-top:12px">
+        <button id="btnStoryboard">① 生成分镜</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>2. 人物参考图（可选，保证人物一致性）</h2>
+      <div class="muted">两种方式：① 选择本地图片（Midjourney/手工绘制等）；② 用分镜图模型按人物描述生成。生成视频时作为人物形象依据。</div>
+      <div id="refImages" style="margin-top:8px"></div>
+      <div style="margin-top:8px">
+        <button class="ghost" id="btnAddRef">+ 本地图片</button>
+        <button class="ghost" id="btnGenRef">✨ API 生成参考图</button>
+      </div>
+      <div id="genRefPanel" style="display:none;margin-top:8px">
+        <label>人物描述（生成参考图提示词）</label>
+        <input type="text" id="genRefPrompt" placeholder="正面半身像，黑色长发女生，米色风衣，干净背景，写实风格">
+        <label>对应角色名</label>
+        <input type="text" id="genRefName" placeholder="小雨">
+        <button class="success" id="btnDoGenRef" style="margin-top:6px">生成参考图</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>3. 生成</h2>
+      <div>
+        <button id="btnImages" disabled>② 生成全部分镜图</button>
+        <button id="btnVideos" disabled>③ 生成全部镜头视频</button>
+        <button id="btnAssemble" disabled>④ 拼接成片</button>
+      </div>
+      <div class="muted" style="margin-top:6px">生成失败的镜头可单独点「重试」，已完成的自动跳过（断点续跑）。</div>
+      <div id="log"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>分镜表</h2>
+      <div id="shots"><div class="muted">点击「生成分镜」后显示。可编辑台词与画面提示词。</div></div>
+    </div>
+    <div class="card" id="result" style="margin-top:14px">
+      <h2>成片</h2>
+      <div class="muted">拼接完成后在此预览。</div>
+    </div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

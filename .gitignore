@@ -1,0 +1,20 @@
+# 构建产物
+src-tauri/target/
+dist/
+
+# ffmpeg sidecar 二进制过大，不入库（下载方式见 README）
+src-tauri/binaries/
+
+# 用户配置与项目数据
+*.local
+config.json
+
+# Rust
+**/*.rs.bk
+
+# Node
+node_modules/
+
+# 系统
+.DS_Store
+Thumbs.db
