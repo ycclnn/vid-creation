@@ -12,6 +12,8 @@ use tauri::{AppHandle, Emitter, Manager};
 
 const DEFAULT_LLM_MODEL: &str = "glm-5.3-flash";
 const DEFAULT_VIDEO_MODEL: &str = "doubao-seedance-2-0-260128";
+// 实测可用图片尺寸：竖=1024x1536、方=1024x1024、横=1536x1024（seedream 1:1 用 2048x2048）
+const DEFAULT_IMAGE_SIZE: &str = "1024x1536";
 
 #[derive(Serialize, Deserialize, Clone)]
 struct Character {
@@ -34,6 +36,7 @@ struct Project {
     /// 动态选择的模型（留空则用上游默认；上游换模型时不需改代码）
     #[serde(default)]
     image_model: Option<String>,
+    /// 实测可用：竖 1024x1536 / 方 1024x1024 / 横 1536x1024（seedream 1:1 用 2048x2048）
     #[serde(default = "default_image_size")]
     image_size: String,
     #[serde(default)]
@@ -57,7 +60,7 @@ fn default_resolution() -> String {
     "720p".into()
 }
 fn default_image_size() -> String {
-    "1344x768".into()
+    "1024x1536".into()
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -74,7 +77,13 @@ struct Shot {
     /// 该镜分镜图路径（生成或用户指定）
     #[serde(default)]
     image: Option<String>,
-    /// 运行状态：pending|running|done|failed
+    /// 该镜生成的视频路径
+    #[serde(default)]
+    video: Option<String>,
+    /// 参考图（多张，data URL 或路径）
+    #[serde(default)]
+    reference_images: Vec<String>,
+    /// 运行状态：pending|running|image_ready|done|failed
     #[serde(default = "default_pending")]
     status: String,
     #[serde(default)]
@@ -186,7 +195,7 @@ fn list_models(app: AppHandle) -> Result<Value, String> {
     client.list_models().map_err(|e| e.to_string())
 }
 
-/// API 生成参考图（两种分镜图来源之一：本地文件 / API 生成）
+/// API 生成参考图（分镜图来源之一：本地文件 / AI 参考生成；prompt 可以基于上传图片的描述）
 #[tauri::command]
 fn generate_reference_image(
     app: AppHandle,
@@ -196,13 +205,44 @@ fn generate_reference_image(
     out_path: String,
 ) -> Result<String, String> {
     let client = client_from_env_or_config(&app).map_err(|e| e.to_string())?;
+    let app2 = app.clone();
     client
-        .image_sync(
+        .image_generate(
             &prompt,
-            None,
-            size.as_deref().unwrap_or("1344x768"),
+            &[],
+            size.as_deref().unwrap_or("1024x1536"),
             model.as_deref(),
             Path::new(&out_path),
+            &move |msg| emit(&app2, "progress", msg),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(out_path)
+}
+
+/// 上传图片 + 描述 → AI 参考上传图生成分镜图（图片转 data URL 作为 references）
+#[tauri::command]
+fn generate_image_from_upload(
+    app: AppHandle,
+    image_paths: Vec<String>,
+    prompt: String,
+    model: Option<String>,
+    size: Option<String>,
+    out_path: String,
+) -> Result<String, String> {
+    let client = client_from_env_or_config(&app).map_err(|e| e.to_string())?;
+    let mut refs = Vec::new();
+    for p in &image_paths {
+        refs.push(image_to_data_url(Path::new(p)).map_err(|e| e.to_string())?);
+    }
+    let app2 = app.clone();
+    client
+        .image_generate(
+            &prompt,
+            &refs,
+            size.as_deref().unwrap_or("1024x1536"),
+            model.as_deref(),
+            Path::new(&out_path),
+            &move |msg| emit(&app2, "progress", msg),
         )
         .map_err(|e| e.to_string())?;
     Ok(out_path)
@@ -266,7 +306,7 @@ fn generate_storyboard(
     Ok(p)
 }
 
-/// 为每镜生成人物一致的分镜图（用第一张人物参考图作 reference）
+/// 为每镜生成人物一致的分镜图（用该镜角色的全部参考图作 references）
 #[tauri::command]
 fn generate_shot_images(
     app: AppHandle,
@@ -282,24 +322,29 @@ fn generate_shot_images(
             continue; // 已有分镜图，跳过（断点续跑）
         }
         emit(&app, "progress", format!("生成分镜图 {}/{}", i + 1, total));
-        // 找该镜台词角色（或第一个角色）的参考图
-        let reference = p
+        // 该镜台词角色（或第一个角色）的全部参考图 → data URL
+        let references: Vec<String> = p
             .characters
             .iter()
             .find(|c| Some(&c.name) == shot.line_character.as_ref())
             .or_else(|| p.characters.first())
-            .and_then(|c| c.reference_images.first())
-            .map(|path| image_to_data_url(Path::new(path)))
-            .transpose()
-            .map_err(|e| e.to_string())?;
+            .map(|c| {
+                c.reference_images
+                    .iter()
+                    .filter_map(|path| image_to_data_url(Path::new(path)).ok())
+                    .collect()
+            })
+            .unwrap_or_default();
         let out = work.join("shots").join(format!("shot_{:03}.png", i + 1));
+        let app2 = app.clone();
         client
-            .image_sync(
+            .image_generate(
                 &shot.prompt,
-                reference.as_deref(),
+                &references,
                 p.image_size.as_str(),
                 p.image_model.as_deref(),
                 &out,
+                &move |msg| emit(&app2, "progress", msg),
             )
             .map_err(|e| format!("分镜图 {}/{} 生成失败: {e}", i + 1, total))?;
         shot.image = Some(out.to_string_lossy().to_string());
@@ -335,8 +380,70 @@ fn generate_dialogue_audio(
     Ok(Some(out.to_string_lossy().to_string()))
 }
 
-/// 生成单镜视频（首帧 = 该镜分镜图；若上一镜已完成，用上一镜视频尾帧做本镜首帧更连贯，
-/// 这里采用首帧=本镜分镜图 + 上一镜尾帧可选策略：默认用本镜分镜图为 first_frame）
+/// AI 依据大概方向 + 秒数 + 前后镜头衔接生成优化后的提示词
+#[tauri::command]
+fn optimize_prompt(
+    app: AppHandle,
+    project: Project,
+    rough_prompt: String,
+    duration: i64,
+    shot_index: i64,
+    prev_prompt: Option<String>,
+    next_prompt: Option<String>,
+) -> Result<String, String> {
+    let client = client_from_env_or_config(&app).map_err(|e| e.to_string())?;
+    let model = project.llm_model.as_deref().unwrap_or(DEFAULT_LLM_MODEL);
+    let system = "你是专业短片分镜师。把用户的大概画面方向优化为一段详细、可直接用于图生视频的中文提示词。只输出优化后的提示词文本，不要任何解释。";
+    let prompt = format!(
+        "大概画面方向：{}\n镜头时长：{} 秒\n上一镜画面：{}\n下一镜画面：{}\n\n要求：\n1. 细化场景、人物动作、表情、运镜（推/拉/摇/移）、光线风格，适配 {} 秒时长\n2. 人物外观严格符合角色设定\n3. 与上一镜/下一镜画面自然衔接\n4. 中文，100-200 字",
+        rough_prompt,
+        duration,
+        prev_prompt.as_deref().unwrap_or("（第一镜）"),
+        next_prompt.as_deref().unwrap_or("（最后一镜）"),
+        duration,
+    );
+    client.chat(&prompt, Some(system), model).map_err(|e| e.to_string())
+}
+
+/// 生成单镜分镜图（该镜角色的全部参考图作 references；实测 async+pending 轮询链路）
+#[tauri::command]
+fn generate_shot_image(
+    app: AppHandle,
+    project: Project,
+    work_dir: String,
+    shot_index: i64,
+    out_path: String,
+) -> Result<String, String> {
+    let client = client_from_env_or_config(&app).map_err(|e| e.to_string())?;
+    let shot = &project.shots[shot_index as usize];
+    // 该镜台词角色（或第一个角色）的全部参考图 → data URL；无则直接文生图
+    let references: Vec<String> = project
+        .characters
+        .iter()
+        .find(|c| Some(&c.name) == shot.line_character.as_ref())
+        .or_else(|| project.characters.first())
+        .map(|c| {
+            c.reference_images
+                .iter()
+                .filter_map(|path| image_to_data_url(Path::new(path)).ok())
+                .collect()
+        })
+        .unwrap_or_default();
+    let app2 = app.clone();
+    client
+        .image_generate(
+            &shot.prompt,
+            &references,
+            project.image_size.as_str(),
+            project.image_model.as_deref(),
+            Path::new(&out_path),
+            &move |msg| emit(&app2, "progress", msg),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(out_path)
+}
+
+/// 生成单镜视频（首帧 = 该镜分镜图）
 #[tauri::command]
 fn generate_shot_video(
     app: AppHandle,
@@ -397,6 +504,7 @@ fn generate_shot_video(
         .map_err(|e| e.to_string())?;
     let bytes = http.get(&url).send().map_err(|e| e.to_string())?.bytes().map_err(|e| e.to_string())?;
     std::fs::write(&out, bytes).map_err(|e| e.to_string())?;
+    shot.video = Some(out.to_string_lossy().to_string());
     shot.status = "done".into();
     Ok(shot)
 }
@@ -556,7 +664,10 @@ fn main() {
             create_workspace,
             list_models,
             generate_reference_image,
+            generate_image_from_upload,
             generate_storyboard,
+            optimize_prompt,
+            generate_shot_image,
             generate_shot_images,
             generate_dialogue_audio,
             generate_shot_video,

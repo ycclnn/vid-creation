@@ -92,26 +92,67 @@ impl Client {
 
     // ---------- 图片生成（人物一致性分镜图） ----------
 
-pub fn image_sync(
+/// 图片生成：POST /v1/image/async 创建任务 + GET /v1/image/pending 轮询。
+/// （实测 sync 对 size 校验过严且不可靠，弃用；reference 支持多张，全实测可用参数）
+pub fn image_generate(
         &self,
         prompt: &str,
-        reference: Option<&str>,
+        references: &[String],
         size: &str,
         model: Option<&str>,
         out_path: &Path,
+        progress: &dyn Fn(String),
     ) -> Result<()> {
         let mut body = json!({"prompt": prompt, "size": size});
         if let Some(m) = model {
             body["model"] = json!(m);
         }
-        if let Some(r) = reference {
-            body["reference"] = json!(r);
+        if !references.is_empty() {
+            body["references"] = json!(references);
         }
-        let data = self.request(reqwest::Method::POST, "/v1/image/sync", Some(&body))?;
-        let url = data["url"]
+        let data = self.request(reqwest::Method::POST, "/v1/image/async", Some(&body))?;
+        let task_id = data["task_id"]
             .as_str()
-            .ok_or_else(|| anyhow!("image/sync 未返回 url: {}", truncate(&data.to_string(), 300)))?;
-        save_url_or_data_url(&self.http, url, out_path)
+            .ok_or_else(|| anyhow!("image/async 未返回 task_id: {}", truncate(&data.to_string(), 300)))?;
+        let url = self.image_wait(task_id, 5, 600, progress)?;
+        save_url_or_data_url(&self.http, &url, out_path)
+    }
+
+    /// 轮询图片异步任务直到完成，返回图片 URL
+    pub fn image_wait(
+        &self,
+        task_id: &str,
+        poll_seconds: u64,
+        timeout_seconds: u64,
+        progress: &dyn Fn(String),
+    ) -> Result<String> {
+        let deadline = std::time::Instant::now() + Duration::from_secs(timeout_seconds);
+        loop {
+            if std::time::Instant::now() > deadline {
+                bail!("图片任务轮询超时 {task_id}");
+            }
+            let data = self.request(
+                reqwest::Method::GET,
+                &format!("/v1/image/pending?task_id={task_id}"),
+                None,
+            )?;
+            let status = data["status"].as_str().unwrap_or("").to_lowercase();
+            match status.as_str() {
+                "completed" | "success" | "succeeded" | "done" => {
+                    let url = extract_url(&data)
+                        .ok_or_else(|| anyhow!("图片任务完成但无 url: {}", truncate(&data.to_string(), 300)))?;
+                    return Ok(url);
+                }
+                "failed" | "fail" | "error" | "cancelled" | "canceled" => {
+                    let msg = data["error_message"].as_str().unwrap_or("");
+                    bail!("图片任务失败 {task_id}: {msg}");
+                }
+                _ => {
+                    progress(format!("图片任务 {task_id}: {status}"));
+                    std::thread::sleep(Duration::from_secs(poll_seconds));
+                }
+            }
+        }
     }
 
     // ---------- Seedance 视频生成（异步） ----------
@@ -154,7 +195,7 @@ pub fn image_sync(
         )
     }
 
-    /// 轮询直到完成，返回视频 URL。
+    /// 轮询直到完成，返回视频 URL。（实测：状态查询为 GET /v1/video/status?id=...，不是 /video/{task_id}）
     pub fn video_wait(
         &self,
         task_id: &str,
@@ -168,21 +209,32 @@ pub fn image_sync(
             if std::time::Instant::now() > deadline {
                 bail!("视频任务轮询超时 {task_id}");
             }
-            let data = self.video_query(task_id)?;
+            let data = self.request(
+                reqwest::Method::GET,
+                &format!("/v1/video/status?id={task_id}"),
+                None,
+            )?;
             let status = data["status"].as_str().unwrap_or("").to_lowercase();
-            let url = extract_url(&data);
+            let url = data["video_url"]
+                .as_str()
+                .map(|s| s.to_string())
+                .or_else(|| extract_url(&data));
             if url.is_some()
-                && (status.is_empty()
-                    || ["success", "succeeded", "completed", "done"]
-                        .iter()
-                        .any(|s| status.contains(s)))
+                && (status.contains("success")
+                    || status.contains("succeeded")
+                    || status.contains("completed")
+                    || status.contains("done"))
             {
                 return Ok(url.unwrap());
             }
             if fail_words.iter().any(|w| status.contains(w)) {
-                bail!("视频任务失败 {task_id}: {}", truncate(&data.to_string(), 400));
+                bail!(
+                    "视频任务失败 {task_id}: {}",
+                    data["error_message"].as_str().unwrap_or("")
+                );
             }
-            progress(format!("任务 {task_id} 状态: {status}"));
+            let pct = data["progress"].as_i64().unwrap_or(0);
+            progress(format!("任务 {task_id} 状态: {status} ({pct}%)"));
             std::thread::sleep(Duration::from_secs(poll_seconds));
         }
     }
