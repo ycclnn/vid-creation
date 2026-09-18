@@ -1,3 +1,6 @@
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod senseaudio;
 
 use senseaudio::{image_to_data_url, Client};
@@ -539,6 +542,7 @@ fn run_ffmpeg(ffmpeg: &Path, args: &[&str]) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .manage(AppState {
             project: Mutex::new(None),
