@@ -238,7 +238,7 @@ route("POST", /^\/api\/image$/, async (req, res, m, body) => {
 });
 
 // 图片任务轮询
-route("GET", /^\/api\/image\/status\?/, async (req, res, m, body, query) => {
+route("GET", /^\/api\/image\/status/, async (req, res, m, body, query) => {
   const data = await senseaudioRequest("GET", `/v1/image/pending?task_id=${query.get("task_id")}`);
   send(res, 200, data);
 });
@@ -262,7 +262,7 @@ route("POST", /^\/api\/video$/, async (req, res, m, body) => {
 });
 
 // 视频任务轮询（实测：/v1/video/status?id=）
-route("GET", /^\/api\/video\/status\?/, async (req, res, m, body, query) => {
+route("GET", /^\/api\/video\/status/, async (req, res, m, body, query) => {
   const data = await senseaudioRequest("GET", `/v1/video/status?id=${query.get("id")}`);
   send(res, 200, data);
 });
@@ -394,7 +394,7 @@ route("POST", /^\/api\/music$/, async (req, res, m, body) => {
   const data = await senseaudioRequest("POST", "/v1/music/song/create", { prompt: body.prompt });
   send(res, 200, data);
 });
-route("GET", /^\/api\/music\/status\?/, async (req, res, m, body, query) => {
+route("GET", /^\/api\/music\/status/, async (req, res, m, body, query) => {
   const data = await senseaudioRequest("GET", `/v1/music/song/pending/${query.get("task_id")}`);
   send(res, 200, data);
 });
@@ -479,10 +479,11 @@ route("POST", /^\/api\/assemble$/, async (req, res, m, body) => {
     const audio = path.join(work, "audio", `line_${String(i + 1).padStart(3, "0")}.mp3`);
     if (dialogueAudio && fs.existsSync(audio)) {
       const withAudio = path.join(videosDir, `shot_${String(i + 1).padStart(3, "0")}_a.mp4`);
+      // 生成的视频可能没有音轨：直接把台词轨 apad 到视频时长后叠加（amix 不引用视频音轨）
       runFfmpeg([
         "-y", "-i", parts[i], "-i", audio,
-        "-filter_complex", "[1:a]apad=pad_dur=10[a1];[0:a][a1]amix=inputs=2:duration=first:dropout_transition=0[a]",
-        "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac",
+        "-filter_complex", "[1:a]apad=whole_dur=600[dub]",
+        "-map", "0:v", "-map", "[dub]", "-c:v", "copy", "-c:a", "aac", "-shortest",
         withAudio,
       ]);
       processed.push(withAudio);
