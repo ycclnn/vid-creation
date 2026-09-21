@@ -1,5 +1,14 @@
 # ShortFilm Web · SenseAudio 短片工作台
 
+## LibTV · 声音选角与配音台
+
+打开 `http://localhost:5178/libtv.html`：为每个角色锁定一份「声音档案」（音色 voice_id + 语速 + 音调，落盘 `data/cast/`），全平台任何项目的台词都强制用同一音色配音。支持选角试听、AI 拆台词、台词本批量配音、连播。
+
+新增 API：
+- `GET/POST /api/cast`（声音档案列表/保存）、`GET /api/cast/:name`、`POST /api/cast/delete`
+- `POST /api/cast/audition`（选角试听）
+- `POST /api/dub`（台词本批量配音，按档案锁定音色）
+
 输入故事梗概+人物 → AI 分镜 → **逐镜确认**（三要素：AI 按秒级 prompt / 分镜图 / 声音）→ 合并成片。
 
 零依赖 Node.js Web 应用：`node server.js` 即可运行，无需构建、无需安装任何包。

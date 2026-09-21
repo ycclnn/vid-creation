@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>ShortFilm · SenseAudio 短片工作台</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0e14;
+    --bg2: #10141d;
+    --card: #161b26;
+    --card2: #1b2130;
+    --line: #262d3f;
+    --muted: #7e8aa3;
+    --text: #e8ecf4;
+    --accent: #6366f1;
+    --accent2: #8b5cf6;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --red: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; font-family:"Inter","Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% -10%, rgba(99,102,241,.12), transparent),
+      radial-gradient(ellipse 60% 40% at 90% -10%, rgba(139,92,246,.08), transparent),
+      var(--bg);
+    color:var(--text); min-height:100vh;
+  }
+  header {
+    padding:14px 24px; background:rgba(22,27,38,.85); backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px;
+    position:sticky; top:0; z-index:20;
+  }
+  header h1 { font-size:15px; margin:0; font-weight:700; letter-spacing:-.2px;
+    background:linear-gradient(90deg,#a5b4fc,#c4b5fd); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  header .spacer { flex:1; }
+  main { max-width:1560px; margin:0 auto; padding:20px; display:grid; grid-template-columns: 350px 1fr 330px; gap:16px; align-items:start; }
+  .card {
+    background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:14px;
+    box-shadow:0 1px 3px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.4);
+  }
+  .card h2 { font-size:11px; margin:0 0 12px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:600; }
+  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 4px; }
+  input[type=text], textarea, select {
+    width:100%; background:#0d1119; border:1px solid #2b3349; color:var(--text);
+    border-radius:8px; padding:8px 11px; font-size:13px; font-family:inherit;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  input[type=text]:focus, textarea:focus, select:focus {
+    outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(99,102,241,.18);
+  }
+  textarea { resize:vertical; line-height:1.55; }
+  button {
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff; border:0; border-radius:8px; padding:9px 16px; font-size:13px;
+    cursor:pointer; margin:3px 3px 3px 0; font-weight:500;
+    transition:filter .15s, transform .05s; box-shadow:0 2px 8px -2px rgba(99,102,241,.5);
+  }
+  button:hover:not(:disabled) { filter:brightness(1.15); }
+  button:active:not(:disabled) { transform:scale(.98); }
+  button:disabled { background:#252c3d; color:#5d6678; cursor:not-allowed; box-shadow:none; }
+  button.ghost { background:#232a3b; box-shadow:none; }
+  button.success { background:linear-gradient(135deg,#059669,#10b981); }
+  button.warn { background:linear-gradient(135deg,#d97706,#f59e0b); }
+  button.sm { padding:5px 11px; font-size:12px; }
+  .row { display:flex; gap:8px; } .row > * { flex:1; min-width:0; }
+  .muted { color:var(--muted); font-size:12px; }
+  .badge { padding:3px 10px; border-radius:20px; font-size:11px; display:inline-block; font-weight:600; }
+  .b-pending { background:#252c3d; color:var(--muted); }
+  .b-running { background:rgba(99,102,241,.25); color:#a5b4fc; border:1px solid rgba(99,102,241,.4); }
+  .b-image_ready { background:rgba(245,158,11,.2); color:#fbbf24; border:1px solid rgba(245,158,11,.4); }
+  .b-approved { background:rgba(16,185,129,.2); color:#34d399; border:1px solid rgba(16,185,129,.4); }
+  .b-failed { background:rgba(239,68,68,.2); color:#f87171; border:1px solid rgba(239,68,68,.4); }
+  #log { font-family:"Cascadia Code",Consolas,monospace; font-size:11px; height:150px; overflow-y:auto;
+    background:#080a0f; border:1px solid var(--line); border-radius:8px; padding:10px;
+    white-space:pre-wrap; word-break:break-all; color:#94a3b8; }
+  .shotcard { border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:8px; background:#131826; cursor:pointer; transition:border-color .15s, transform .1s; }
+  .shotcard:hover { border-color:#3b4560; }
+  .shotcard.current { border-color:var(--accent); background:rgba(99,102,241,.06); box-shadow:0 0 0 1px rgba(99,102,241,.3); }
+  .head { display:flex; gap:8px; align-items:center; font-size:12px; color:var(--muted); flex-wrap:wrap; }
+  .media { width:100%; max-height:320px; border-radius:10px; margin-top:8px; object-fit:contain; background:#000; }
+  .ref-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
+  .ref-tags .tag { background:#232a3b; border-radius:6px; padding:3px 8px; font-size:11px; color:var(--muted); cursor:pointer; transition:background .15s; }
+  .ref-tags .tag:hover { background:#2d3650; }
+  #preview img, #preview video { width:100%; max-height:380px; border-radius:10px; margin-top:8px; object-fit:contain; background:#000; }
+  hr.sep { border:0; border-top:1px solid var(--line); margin:14px 0; }
+  .progress-bar { height:5px; background:#252c3d; border-radius:3px; overflow:hidden; margin-top:8px; }
+  .progress-bar > div { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .5s; border-radius:3px; }
+  /* 三要素区块 */
+  .tri { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; }
+  @media (max-width:1100px) { .tri { grid-template-columns: 1fr; } }
+  .element {
+    background:#12172470; border:1px solid #232b3e; border-radius:12px; padding:14px;
+    display:flex; flex-direction:column;
+  }
+  .element .el-title { font-size:12px; font-weight:600; color:#c7d0e0; margin-bottom:10px; }
+  .element .el-title .muted { font-weight:400; }
+  .placeholder { padding:36px 10px; text-align:center; border:1.5px dashed #2b3349; border-radius:10px; margin-top:6px; color:var(--muted); font-size:12px; }
+  .stepline { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .stepline .num { background:rgba(99,102,241,.2); color:#a5b4fc; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; }
+  .charline { display:flex; gap:6px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+  .charline input[type=text] { flex:1; min-width:80px; }
+  .charline select { flex:1; min-width:130px; }
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:#2b3349; border-radius:4px; }
+  ::-webkit-scrollbar-thumb:hover { background:#3b4560; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎬 ShortFilm 短片工作台</h1>
+  <span class="muted">SenseAudio · 全模态 · 逐镜确认工作流</span>
+  <div class="spacer"></div>
+  <span class="muted" id="projName"></span>
+  <button class="ghost sm" id="btnKey">设置 Key</button>
+</header>
+<main>
+  <!-- 左：项目设置 -->
+  <section id="colSetup">
+    <div class="card" id="setupCard">
+      <h2>新建项目</h2>
+      <label>片名</label>
+      <input type="text" id="title" value="我的短片">
+      <label>故事梗概</label>
+      <textarea id="synopsis" rows="3" placeholder="女孩在毕业前夜回到童年老宅，与记忆中的自己和解。"></textarea>
+      <label>人物（每行：名字 | 外观描述）</label>
+      <textarea id="characters" rows="3" placeholder="小雨 | 二十岁女生，黑色长发，米色风衣"></textarea>
+      <div class="row">
+        <div><label>镜头数</label><input type="text" id="shotCount" value="6"></div>
+        <div><label>单镜秒数</label><input type="text" id="shotSeconds" value="6"></div>
+      </div>
+      <div class="row">
+        <div><label>画幅</label><select id="ratio"><option value="9:16" selected>9:16 竖屏</option><option value="16:9">16:9 横</option><option value="1:1">1:1</option></select></div>
+        <div><label>分辨率</label><select id="resolution"><option value="720p" selected>720p</option><option value="1080p">1080p</option><option value="480p">480p</option></select></div>
+      </div>
+      <label>BGM 风格（可选）</label>
+      <input type="text" id="music" placeholder="轻柔钢琴曲">
+      <div class="row" style="margin-top:10px">
+        <div><label>LLM</label><select id="llmModel"></select></div>
+      </div>
+      <div class="row">
+        <div><label>图片模型</label><select id="imageModel"></select></div>
+        <div><label>图片尺寸</label><select id="imageSize"></select></div>
+      </div>
+      <div class="row">
+        <div><label>视频模型</label><select id="videoModel"></select></div>
+      </div>
+      <div style="margin-top:10px"><button id="btnCreate" style="width:100%">① 生成分镜表</button></div>
+    </div>
+    <div class="card" id="projectListCard">
+      <h2>历史项目</h2>
+      <div id="projectList" class="muted">-</div>
+    </div>
+  </section>
+
+  <!-- 中：当前镜头工作区 -->
+  <section id="colWork">
+    <div class="card" id="editorCard">
+      <h2>当前镜头 <span id="shotStep" class="badge b-pending"></span></h2>
+      <div id="editor"><div class="muted">先在左侧创建项目。</div></div>
+    </div>
+    <div class="card" id="previewCard">
+      <h2>本镜预览</h2>
+      <div id="preview"><div class="muted">-</div></div>
+    </div>
+    <div class="card">
+      <h2>运行日志</h2>
+      <div id="log"></div>
+    </div>
+  </section>
+
+  <!-- 右：镜头队列 + 人物 + 合并 -->
+  <section id="colSide">
+    <div class="card">
+      <h2>镜头队列 <span id="queueStat" class="muted"></span></h2>
+      <div id="queue"><div class="muted">-</div></div>
+      <hr class="sep">
+      <div class="row">
+        <button id="btnAssemble" class="success" style="width:100%" disabled>🎬 合并成片（全部通过后）</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>人物与声音</h2>
+      <div id="charPanel"><div class="muted">-</div></div>
+    </div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

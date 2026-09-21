@@ -8,13 +8,13 @@ const path = require("path");
 const os = require("os");
 const { URL, URLSearchParams } = require("url");
 
-const VERSION = "v2-20260921";
+const VERSION = "v3-libtv-voicecast";
 const PORT = process.env.PORT || 5178;
 const BASE_URL = "https://api.senseaudio.cn";
 const CONFIG_FILE = path.join(__dirname, "config.json");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATA_DIR = path.join(__dirname, "data");
-for (const d of [DATA_DIR, path.join(DATA_DIR, "workspaces")]) {
+for (const d of [DATA_DIR, path.join(DATA_DIR, "workspaces"), path.join(DATA_DIR, "cast")]) {
   fs.mkdirSync(d, { recursive: true });
 }
 
@@ -267,29 +267,128 @@ route("GET", /^\/api\/video\/status\?/, async (req, res, m, body, query) => {
   send(res, 200, data);
 });
 
+// ---------- 声音选角（Voice Cast）：全平台音色一致性 ----------
+// 每个角色一份「声音档案」：voice_id + speed/vol/pitch 固化落盘，任何项目引用同名角色都用同一音色。
+
+function castFile(name) {
+  const safe = String(name || "").replace(/[\\/:*?"<>|]/g, "_");
+  return path.join(DATA_DIR, "cast", safe + ".json");
+}
+
+// 声音档案：保存/更新
+route("POST", /^\/api\/cast$/, async (req, res, m, body) => {
+  if (!body.name) return send(res, 400, { error: "需要角色名 name" });
+  const profile = {
+    name: body.name,
+    voice_id: body.voice_id || "female_0033_b",
+    voice_name: body.voice_name || "",
+    speed: Number(body.speed) || 1,
+    vol: Number(body.vol ?? 1) || 1,
+    pitch: Number(body.pitch ?? 0) || 0,
+    note: body.note || "",
+    sample_url: body.sample_url || "",
+    updated_at: new Date().toISOString(),
+  };
+  fs.writeFileSync(castFile(body.name), JSON.stringify(profile, null, 2));
+  send(res, 200, profile);
+});
+
+// 声音档案列表
+route("GET", /^\/api\/cast$/, async (req, res) => {
+  const dir = path.join(DATA_DIR, "cast");
+  const list = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => {
+      try {
+        return JSON.parse(fs.readFileSync(path.join(dir, f), "utf-8"));
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  send(res, 200, list);
+});
+
+// 单个声音档案
+route("GET", /^\/api\/cast\//, async (req, res, m, body, query, pathname) => {
+  const name = decodeURIComponent(pathname.replace(/^\/api\/cast\//, ""));
+  const f = castFile(name);
+  if (!fs.existsSync(f)) return send(res, 404, { error: "声音档案不存在" });
+  send(res, 200, JSON.parse(fs.readFileSync(f, "utf-8")));
+});
+
+// 删除声音档案
+route("POST", /^\/api\/cast\/delete$/, async (req, res, m, body) => {
+  const f = castFile(body.name);
+  if (fs.existsSync(f)) fs.unlinkSync(f);
+  send(res, 200, { ok: true });
+});
+
+// 选角试听：用指定音色读固定台词
+route("POST", /^\/api\/cast\/audition$/, async (req, res, m, body) => {
+  const text = body.text || "你好，这是我的声音。今后由我来为这个角色配音。";
+  const out = await ttsToFile(text, body.voice_id || "female_0033_b", body);
+  send(res, 200, out);
+});
+
+// 台词本批量配音：[{ character, text }, ...] → 按声音档案锁定音色，逐条生成
+route("POST", /^\/api\/dub$/, async (req, res, m, body) => {
+  const lines = Array.isArray(body.lines) ? body.lines : [];
+  if (!lines.length) return send(res, 400, { error: "lines 为空" });
+  const results = [];
+  for (let i = 0; i < lines.length; i++) {
+    const { character, text } = lines[i];
+    if (!text) {
+      results.push({ index: i, character, error: "空台词" });
+      continue;
+    }
+    const cf = castFile(character || "");
+    let profile = null;
+    if (fs.existsSync(cf)) profile = JSON.parse(fs.readFileSync(cf, "utf-8"));
+    if (!profile) {
+      results.push({ index: i, character, error: `「${character || "?"}」没有声音档案（先去选角）` });
+      continue;
+    }
+    try {
+      const out = await ttsToFile(text, profile.voice_id, profile);
+      results.push({ index: i, character, ...out });
+    } catch (e) {
+      results.push({ index: i, character, error: e.message });
+    }
+  }
+  send(res, 200, { results });
+});
+
 // TTS（实测：voice_setting 嵌套 + stream:false + hex 音频；必须带 voice_id）
-route("POST", /^\/api\/tts$/, async (req, res, m, body) => {
+async function ttsToFile(text, voiceId, opts = {}) {
   const apiBody = {
     model: "sensenova-tts-2.0",
-    text: body.text,
+    text,
     stream: false,
     voice_setting: {
-      voice_id: body.voice_id || "female_0033_b",
-      speed: 1, vol: 1, pitch: 0,
+      voice_id: voiceId || "female_0033_b",
+      speed: Number(opts.speed) || 1,
+      vol: Number(opts.vol ?? 1) || 1,
+      pitch: Number(opts.pitch ?? 0) || 0,
     },
     audio_setting: { format: "mp3", sample_rate: 32000, bitrate: 128000, channel: 2 },
   };
   const data = await senseaudioRequest("POST", "/v1/t2a_v2", apiBody);
   const code = data.base_resp?.status_code ?? 0;
-  if (code !== 0) return send(res, 400, { error: data.base_resp?.status_msg || "TTS 失败" });
+  if (code !== 0) throw new Error(data.base_resp?.status_msg || "TTS 失败");
   const audioHex = data.data?.audio || "";
   const buf = Buffer.from(audioHex, "hex");
   const id = "tts_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
-  const p = path.join(DATA_DIR, id + ".mp3");
-  fs.writeFileSync(p, buf);
-  send(res, 200, { url: `/files/${id}.mp3` });
-});
+  fs.writeFileSync(path.join(DATA_DIR, id + ".mp3"), buf);
+  return { url: `/files/${id}.mp3` };
+}
 
+route("POST", /^\/api\/tts$/, async (req, res, m, body) => {
+  const out = await ttsToFile(body.text, body.voice_id, body);
+  send(res, 200, out);
+});
 // 音乐生成
 route("POST", /^\/api\/music$/, async (req, res, m, body) => {
   const data = await senseaudioRequest("POST", "/v1/music/song/create", { prompt: body.prompt });
@@ -432,6 +531,8 @@ const MIME = { ".html": "text/html; charset=utf-8", ".js": "application/javascri
 
 function serveStatic(res, pathname) {
   let p = pathname === "/" ? "/index.html" : pathname;
+  // 旧工作台已废弃：入口全部指向新 LibTV 平台
+  if (p === "/index_old.html.bak" || p === "/app_old.js.bak") return send(res, 404, "not found");
   const file = path.join(PUBLIC_DIR, p);
   if (!file.startsWith(PUBLIC_DIR)) return send(res, 403, "forbidden");
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) return send(res, 404, "not found");
