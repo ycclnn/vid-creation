@@ -1,0 +1,11 @@
+{
+  "name": "shortfilm-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SenseAudio 短片生成工具（Web 版）：梗概+人物 → 分镜 → 逐镜生成 → 合并",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}
