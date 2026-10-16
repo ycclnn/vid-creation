@@ -22,7 +22,7 @@ START_URI = "data:image/png;base64,iVBORw0KGgpTVEFSVA=="
 END_URI = "data:image/png;base64,iVBORw0KGgpFTkQ="
 REF1_URI = "data:image/png;base64,iVBORw0KGgpSRUYx"
 REF2_URI = "data:image/png;base64,iVBORw0KGgpSRUYy"
-AUDIO_URI = "data:audio/x-wav;base64,UklGRgAAAABXQVZFQQ=="
+AUDIO_URI = "data:audio/wav;base64,UklGRgAAAABXQVZFQQ=="
 
 
 def _hailuo_body(*, model: str = "MiniMax-Hailuo-2.3", resolution: str = "768P", image: str | None = None) -> dict:
