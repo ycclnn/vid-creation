@@ -1,0 +1,40 @@
+{
+  "kind": "declarative",
+  "schema_version": "1.0.0",
+  "media_type": "image",
+  "meta": {
+    "name": "SenseAudio Image",
+    "author": "ArcReel",
+    "version": "1.0.0",
+    "hints": {"suggested_models": [{"id": "doubao-seedream-5-0-260128"}, {"id": "senseaudio-image-2.0-260319"}]}
+  },
+  "auth": {"headers": {"Authorization": "Bearer {{ api_key }}"}},
+  "submit": {
+    "method": "POST",
+    "url": "{{ base_url }}/v1/image/async",
+    "body": {
+      "model": "{{ model }}",
+      "prompt": "{{ prompt }}",
+      "seed": "{{ seed }}"
+    },
+    "extract": {"task_id": ["$.task_id"], "error": ["$.error.message", "$.error", "$.message", "$.ref_code", "$.status_msg"]}
+  },
+  "poll": {
+    "method": "GET",
+    "url": "{{ base_url }}/v1/image/pending?task_id={{ task_id }}",
+    "extract": {
+      "status": ["$.status", "$.data.status"],
+      "image_url": ["$.url", "$.data.url"],
+      "error": ["$.error_message", "$.error.message", "$.error", "$.data.error_message"]
+    }
+  },
+  "status_map": {
+    "pending": "running",
+    "completed": "succeeded",
+    "failed": "failed",
+    "cancelled": "failed"
+  },
+  "capabilities": {
+    "text_to_image": true
+  }
+}

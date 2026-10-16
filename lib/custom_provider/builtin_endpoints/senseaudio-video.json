@@ -1,0 +1,92 @@
+{
+  "kind": "declarative",
+  "schema_version": "1.0.0",
+  "media_type": "video",
+  "meta": {
+    "name": "SenseAudio Video",
+    "author": "ArcReel",
+    "version": "1.0.0",
+    "hints": {"suggested_models": [{"id": "doubao-seedance-2-0-260128"}]}
+  },
+  "auth": {"headers": {"Authorization": "Bearer {{ api_key }}"}},
+  "inputs": {
+    "first_frame": {"source": "start_image", "encoding": "data_uri"},
+    "last_frame": {"source": "end_image", "encoding": "data_uri"},
+    "refs": {"source": "reference_images", "encoding": "data_uri"},
+    "ref_audio": {"source": "reference_audio_files", "encoding": "data_uri"}
+  },
+  "enum_maps": {"resolution": {"480p": "480p", "720p": "720p", "1080p": "1080p"}},
+  "defaults": {"resolution": "720p", "generate_audio": true},
+  "submit": {
+    "method": "POST",
+    "url": "{{ base_url }}/v1/video/create",
+    "body": {
+      "model": "{{ model }}",
+      "content": [
+        {"type": "text", "text": "{{ prompt }}"},
+        {
+          "$when": "first_frame",
+          "type": "image",
+          "url": "{{ inputs.first_frame }}",
+          "role": "first_frame"
+        },
+        {
+          "$when": "last_frame",
+          "type": "image",
+          "url": "{{ inputs.last_frame }}",
+          "role": "last_frame"
+        },
+        {
+          "$each": {
+            "in": "inputs.refs",
+            "as": "ref",
+            "item": {"type": "image", "url": "{{ ref }}", "role": "reference"}
+          }
+        },
+        {
+          "$each": {
+            "in": "inputs.ref_audio",
+            "as": "audio",
+            "item": {"type": "audio", "audio_url": "{{ audio }}"}
+          }
+        }
+      ],
+      "duration": "{{ duration }}",
+      "resolution": "{{ resolution }}",
+      "ratio": "{{ aspect_ratio }}",
+      "watermark": false,
+      "provider_specific": {"generate_audio": "{{ generate_audio }}"}
+    },
+    "extract": {"task_id": ["$.task_id"], "error": ["$.error.message", "$.error", "$.message", "$.ref_code", "$.status_msg"]}
+  },
+  "poll": {
+    "method": "GET",
+    "url": "{{ base_url }}/v1/video/status?id={{ task_id }}",
+    "extract": {
+      "status": ["$.status"],
+      "video_url": ["$.video_url", "$.data.video_url"],
+      "error": ["$.error_message", "$.error.message", "$.error", "$.status_msg"],
+      "usage": {
+        "duration_seconds": {
+          "paths": ["$.duration", "$.data.duration"],
+          "accept": "scalar"
+        }
+      }
+    }
+  },
+  "status_map": {
+    "pending": "queued",
+    "processing": "running",
+    "completed": "succeeded",
+    "failed": "failed",
+    "cancelled": "failed"
+  },
+  "capabilities": {
+    "first_frame": true,
+    "last_frame": true,
+    "max_reference_images": 9,
+    "reference_audio_mode": "direct",
+    "max_reference_audio_count": 3,
+    "max_reference_audio_total_seconds": 15
+  }
+}

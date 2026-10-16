@@ -83,6 +83,8 @@ class TestRegistry:
             "dashscope-tts",
             "minimax-tts",
             "gemini-tts",
+            "senseaudio-image",
+            "senseaudio-video",
         }
 
     def test_each_spec_has_required_fields(self):
@@ -102,6 +104,7 @@ class TestRegistry:
                 "kling",
                 "openrouter",
                 "xai",
+                "senseaudio",
             }
             # 注册表里的都是内置端点，来源恒为 builtin；用户端点不进注册表，由 ce- 键现构造。
             assert spec.source == "builtin"
@@ -279,7 +282,7 @@ class TestRegistry:
     def test_audio_capable_endpoints_match_backends_that_send_audio(self):
         """运输声明与 backend 实现同步：声明 True 的 endpoint 必须真的组装参考音频。"""
         audio_capable = {k for k, s in ENDPOINT_REGISTRY.items() if s.reference_audio_capable}
-        assert audio_capable == {"ark-seedance", "dashscope-async-video", "minimax-h3"}
+        assert audio_capable == {"ark-seedance", "dashscope-async-video", "minimax-h3", "senseaudio-video"}
 
     def test_audio_endpoint_spec(self):
         spec = ENDPOINT_REGISTRY["openai-tts"]
@@ -307,6 +310,7 @@ class TestRegistry:
             "dashscope-image",
             "minimax-image",
             "kling-image",
+            "senseaudio-image",
         }
         assert video_keys == {
             "openai-video",
@@ -323,6 +327,7 @@ class TestRegistry:
             "minimax-h3",
             "kling-video",
             "gemini-video",
+            "senseaudio-video",
         }
 
 
@@ -652,6 +657,7 @@ def test_image_endpoint_registry_entries():
         "dashscope-image",
         "minimax-image",
         "kling-image",
+        "senseaudio-image",
     }
 
 
