@@ -145,7 +145,9 @@ def _patch_sysctls(
             "/proc/sys/kernel/unprivileged_userns_clone": userns_clone,
             "/proc/sys/user/max_user_namespaces": max_user_ns,
         }
-        val = mapping.get(str(self))
+        # as_posix 与 sysctl 常量的字面形态一致：Windows 上 str(Path) 给出反斜杠路径，
+        # 映射键对不上会让每条 sysctl 都按「不存在」处理，诊断分支全部落空。
+        val = mapping.get(self.as_posix())
         if val is None:
             raise OSError("simulated missing sysctl")
         return val

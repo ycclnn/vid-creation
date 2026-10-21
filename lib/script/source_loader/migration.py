@@ -64,7 +64,8 @@ def migrate_project_source_encoding(project_dir: Path) -> MigrationSummary:
         backup_path = backup_dir / file_path.name
         if not backup_path.exists():
             shutil.copyfile(file_path, backup_path)
-        file_path.write_text(text, encoding="utf-8")
+        # newline=""：迁移改写换行会让源文指纹失配，Windows 上 write_text 的默认翻译会写 CRLF。
+        file_path.write_text(text, encoding="utf-8", newline="")
         logger.info(
             "迁移成功：%s（%s → utf-8），原文件备份到 %s",
             file_path,

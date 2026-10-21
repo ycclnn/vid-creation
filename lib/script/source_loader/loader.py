@@ -152,7 +152,9 @@ class SourceLoader:
         if has_conflict and on_conflict == "replace":
             cls._purge_stale_raw(dst_dir, target_stem)
 
-        normalized_path.write_text(extracted.text, encoding="utf-8")
+        # newline=""：Windows 上 write_text 的默认换行翻译会把 extracted.text 的 \n 写成
+        # \r\n，与原始字节不等价、raw 备份判定与源文指纹都会失配。
+        normalized_path.write_text(extracted.text, encoding="utf-8", newline="")
 
         try:
             raw_path = cls._maybe_backup_raw(

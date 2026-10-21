@@ -60,6 +60,10 @@ def safe_join(
         TypeError: ``parts`` 含非路径类型（如 project.json 里的脏数据）。
     """
     base_real = _realpath(base)
+    # 内嵌 NUL 字节显式拒绝：Windows 上 os.path.realpath 不校验 NUL（静默保留），
+    # Linux 上则直接抛 ValueError。两平台同形拒绝，不留只有 Linux 才踩得到的缝。
+    if any("\x00" in str(part) for part in parts) or "\x00" in str(base):
+        raise PathTraversalError(f"路径含非法字符：{parts!r}")
     # 预先补齐末尾分隔符：base 恰为文件系统根 / Windows 盘符根时 base_real 本身已带
     # 分隔符（如 "/"、"C:\\"），再拼一次会变成 "//"/"C:\\\\"，导致任何合法子路径都
     # 无法匹配前缀而被误判越界。

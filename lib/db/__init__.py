@@ -62,9 +62,9 @@ async def init_db() -> None:
             _log.info("Detected pre-Alembic database, stamping base revision %s", base)
             command.stamp(cfg, base)
         command.upgrade(cfg, "head")
+        _log.info("Database schema is up to date")
 
     await asyncio.get_event_loop().run_in_executor(None, _run_alembic)
-    _log.info("Database schema is up to date")
 
 
 async def close_db() -> None:

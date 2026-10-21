@@ -52,7 +52,7 @@ def _make_project(project_dir: Path) -> None:
 
 
 def _read_manifest(project_dir: Path) -> dict:
-    return json.loads((project_dir / MANIFEST_FILENAME).read_text())
+    return json.loads((project_dir / MANIFEST_FILENAME).read_text(encoding="utf-8"))
 
 
 def _skill_path(project_dir: Path, name: str = "demo") -> Path:
@@ -71,8 +71,8 @@ class TestFirstSyncMigration:
         pm, _profile_dir, project_dir = env
         pm.sync_agent_profile(project_dir)
 
-        assert _skill_path(project_dir).read_text() == "demo v1"
-        assert (project_dir / "CLAUDE.md").read_text() == "prompt v1"
+        assert _skill_path(project_dir).read_text(encoding="utf-8") == "demo v1"
+        assert (project_dir / "CLAUDE.md").read_text(encoding="utf-8") == "prompt v1"
         manifest = _read_manifest(project_dir)
         assert manifest["schema_version"] == MANIFEST_SCHEMA_VERSION
         assert manifest["profile_id"] == EXPECTED_PROFILE_ID
@@ -88,8 +88,8 @@ class TestFirstSyncMigration:
 
         pm.sync_agent_profile(project_dir)
 
-        assert _skill_path(project_dir).read_text() == "demo v1"
-        assert (project_dir / "CLAUDE.md").read_text() == "prompt v1"
+        assert _skill_path(project_dir).read_text(encoding="utf-8") == "demo v1"
+        assert (project_dir / "CLAUDE.md").read_text(encoding="utf-8") == "prompt v1"
 
     def test_first_sync_replaces_wrong_type_placeholders(self, env):
         """``.claude`` 是普通文件 / ``CLAUDE.md`` 是目录时，reset 必须先清理掉，
@@ -104,10 +104,11 @@ class TestFirstSyncMigration:
         pm.sync_agent_profile(project_dir)
 
         assert (project_dir / ".claude").is_dir()
-        assert _skill_path(project_dir).read_text() == "demo v1"
+        assert _skill_path(project_dir).read_text(encoding="utf-8") == "demo v1"
         assert (project_dir / "CLAUDE.md").is_file()
-        assert (project_dir / "CLAUDE.md").read_text() == "prompt v1"
+        assert (project_dir / "CLAUDE.md").read_text(encoding="utf-8") == "prompt v1"
 
+    @pytest.mark.needs_symlink
     def test_create_project_invokes_sync(self, env):
         pm, _, _ = env
         new_dir = pm.create_project("brand-new")
@@ -115,7 +116,7 @@ class TestFirstSyncMigration:
         assert (new_dir / ".claude").is_dir()
         assert not (new_dir / ".claude").is_symlink()
         assert (new_dir / MANIFEST_FILENAME).is_file()
-        assert (new_dir / "CLAUDE.md").read_text() == "prompt v1"
+        assert (new_dir / "CLAUDE.md").read_text(encoding="utf-8") == "prompt v1"
 
 
 # ---------- 决策表 15 行覆盖 ----------
@@ -158,7 +159,7 @@ class TestDecisionTable:
 
         stats = pm.sync_agent_profile(project_dir)
 
-        assert _skill_path(project_dir).read_text() == "demo v2"
+        assert _skill_path(project_dir).read_text(encoding="utf-8") == "demo v2"
         assert stats["upgraded"] == 1
 
     def test_decision_5_user_edit_converging_to_profile_version(self, env):
@@ -186,7 +187,7 @@ class TestDecisionTable:
 
         stats = pm.sync_agent_profile(project_dir)
 
-        assert _skill_path(project_dir).read_text() == "user customized"
+        assert _skill_path(project_dir).read_text(encoding="utf-8") == "user customized"
         assert stats["user_modified"] == 1
 
     def test_decision_7_profile_deletion_propagates_to_unmodified_dest(self, env):
@@ -211,7 +212,7 @@ class TestDecisionTable:
 
         stats = pm.sync_agent_profile(project_dir)
 
-        assert _skill_path(project_dir).read_text() == "user owned now"
+        assert _skill_path(project_dir).read_text(encoding="utf-8") == "user owned now"
         assert stats["orphaned"] == 1
         entries = _read_manifest(project_dir)["entries"]
         assert entries[".claude/skills/demo/SKILL.md"]["source"] == "profile"
@@ -227,7 +228,7 @@ class TestDecisionTable:
         for _ in range(3):
             pm.sync_agent_profile(project_dir)
 
-        assert user_skill.read_text() == "private workflow"
+        assert user_skill.read_text(encoding="utf-8") == "private workflow"
         entries = _read_manifest(project_dir)["entries"]
         assert ".claude/skills/user_only/SKILL.md" not in entries
 
@@ -317,7 +318,7 @@ class TestDecisionTable:
         assert not _skill_path(project_dir).exists()
         assert stats["tombstoned"] >= 1
         pm.force_resync_profile(project_dir, paths=[".claude/skills/demo/SKILL.md"])
-        assert _skill_path(project_dir).read_text() == "demo v2 readded"
+        assert _skill_path(project_dir).read_text(encoding="utf-8") == "demo v2 readded"
 
     def test_decision_15_collision_preserves_user_content(self, env):
         """#15：用户独立创建同名文件（D≠P）→ 保留 D，不写 entry。"""
@@ -333,7 +334,7 @@ class TestDecisionTable:
 
         stats = pm.sync_agent_profile(project_dir)
 
-        assert user_x.read_text() == "user version A"
+        assert user_x.read_text(encoding="utf-8") == "user version A"
         entries = _read_manifest(project_dir)["entries"]
         assert ".claude/skills/X/SKILL.md" not in entries
         assert stats["collision"] == 1
@@ -371,7 +372,7 @@ class TestForceResync:
 
         stats = pm.force_resync_profile(project_dir, paths=[".claude/skills/demo/SKILL.md"])
 
-        assert _skill_path(project_dir).read_text() == "demo v1"
+        assert _skill_path(project_dir).read_text(encoding="utf-8") == "demo v1"
         assert stats["created"] == 1
 
     def test_force_resync_skips_missing_profile_file(self, env, caplog):
@@ -427,9 +428,9 @@ class TestForceResync:
         stats = pm.force_resync_profile(project_dir, paths=[".claude/skills/demo/SKILL.md"])
 
         # demo 被回填
-        assert _skill_path(project_dir).read_text() == "demo v1"
+        assert _skill_path(project_dir).read_text(encoding="utf-8") == "demo v1"
         # other skill 不被破坏
-        assert other_skill.read_text() == "user-customized other skill"
+        assert other_skill.read_text(encoding="utf-8") == "user-customized other skill"
         # 新 manifest 只含 demo entry，不是全量
         from lib.agent.profile_manifest import load_manifest
 
@@ -439,6 +440,7 @@ class TestForceResync:
         assert set(manifest.entries.keys()) == {".claude/skills/demo/SKILL.md"}
         assert stats["created"] == 1
 
+    @pytest.mark.needs_symlink
     def test_sync_skips_dest_symlink_escape(self, env):
         """``.claude`` 子树含逃逸 symlink 时该项跳过，不读写项目外文件。
 
@@ -463,7 +465,7 @@ class TestForceResync:
         # 分支 → _apply_decision 里跑 sha256_file(d) 会跟过 symlink 读到 outside。
         # escape guard 阻断该 rel 的 I/O。
         manifest_path = project_dir / MANIFEST_FILENAME
-        data = json.loads(manifest_path.read_text())
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
         data["entries"][".claude/evil_link.md"] = {
             "sha256": "0" * 64,
             "size": 100,
@@ -474,12 +476,13 @@ class TestForceResync:
         stats = pm.sync_agent_profile(project_dir)
 
         # outside 文件应原样不动
-        assert outside.read_text() == "MUST NOT be touched"
+        assert outside.read_text(encoding="utf-8") == "MUST NOT be touched"
         # 该 rel 至少计为 errors（escape guard 拦下来）
         assert stats["errors"] >= 1
         # symlink 自身没被改（rmtree 在 _full_reset 才发生，这里走主路径）
         assert os.path.islink(escape_link)
 
+    @pytest.mark.needs_symlink
     def test_sync_refuses_symlink_lock_file(self, env):
         """``.profile_sync.lock`` 被预置为指向项目外的 symlink → sync 拒绝运行，
         不允许跟 symlink 截断外部文件。
@@ -497,8 +500,9 @@ class TestForceResync:
         with pytest.raises(ValueError, match="lock path is a symlink"):
             pm.sync_agent_profile(project_dir)
 
-        assert outside.read_text() == "MUST NOT be truncated"
+        assert outside.read_text(encoding="utf-8") == "MUST NOT be truncated"
 
+    @pytest.mark.needs_symlink
     def test_sync_works_without_o_nofollow(self, env, monkeypatch: pytest.MonkeyPatch):
         """Windows 上 ``os`` 模块没有 ``O_NOFOLLOW`` 常量。锁实现必须能降级到
         Python 层 ``is_symlink`` 预检，否则进程在 ``_project_lock`` 入口就会因
@@ -513,6 +517,7 @@ class TestForceResync:
         assert stats["created"] >= 1
         assert (project_dir / "CLAUDE.md").exists()
 
+    @pytest.mark.needs_symlink
     def test_sync_refuses_symlink_lock_without_o_nofollow(self, env, monkeypatch: pytest.MonkeyPatch):
         """Windows 降级路径下仍须拒绝 symlink 形态的锁文件，不能因没有
         ``O_NOFOLLOW`` 就放弃 symlink 防护。
@@ -527,8 +532,9 @@ class TestForceResync:
         with pytest.raises(ValueError, match="lock path is a symlink"):
             pm.sync_agent_profile(project_dir)
 
-        assert outside.read_text() == "MUST NOT be truncated"
+        assert outside.read_text(encoding="utf-8") == "MUST NOT be truncated"
 
+    @pytest.mark.needs_symlink
     def test_save_manifest_tmp_uses_unpredictable_name(self, tmp_path: Path):
         """``save_manifest`` 不能用 ``.arcreel_profile_manifest.json.tmp`` 这种
         predictable 名字，否则攻击者预置同名 symlink → ``/etc/x`` 时 tmp.write
@@ -558,10 +564,11 @@ class TestForceResync:
         save_manifest(project, manifest, original_bytes=None)
 
         # outside 内容必须不被截断/覆盖
-        assert outside.read_text() == "MUST NOT be truncated"
+        assert outside.read_text(encoding="utf-8") == "MUST NOT be truncated"
         # 真实 manifest 写入 project_dir
         assert (project / MANIFEST_FILENAME).read_bytes() == manifest.normalized_bytes()
 
+    @pytest.mark.needs_symlink
     def test_load_manifest_refuses_symlink_manifest(self, tmp_path: Path):
         """``.arcreel_profile_manifest.json`` 被预置为指向项目外的 symlink → load
         视同损坏走 reset，不跟 symlink 读外部内容（信息泄露 + 错误 reset 决策）。
@@ -595,6 +602,7 @@ class TestForceResync:
         assert dest_dir.is_dir()
         assert list(dest_dir.iterdir()) == []
 
+    @pytest.mark.needs_symlink
     def test_safe_copy_unlinks_symlink_dest_before_write(self, tmp_path: Path):
         """``_safe_copy`` 必须先 unlink symlink 形态的 dest 再写，否则会跟 symlink
         把内容写到 target（项目外）。
@@ -614,10 +622,10 @@ class TestForceResync:
         _safe_copy(src, dest)
 
         # outside 内容不应被修改
-        assert outside.read_text() == "ORIGINAL outside content"
+        assert outside.read_text(encoding="utf-8") == "ORIGINAL outside content"
         # dest 应该是真实文件（不再是 symlink），含新内容
         assert not dest.is_symlink()
-        assert dest.read_text() == "new content"
+        assert dest.read_text(encoding="utf-8") == "new content"
 
     def test_force_resync_raises_on_empty_profile(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         """profile 存在但无文件 → ProfileEmptyError，与主入口对称。
@@ -763,6 +771,7 @@ class TestRepairAllSymlinks:
 
 
 class TestLegacySymlinkMigration:
+    @pytest.mark.needs_symlink
     def test_legacy_symlink_replaced_with_materialized_dir(self, env):
         """老版本部署遗留的 symlink → 首次 repair 拆除升级为物化。"""
         pm, profile_dir, project_dir = env
@@ -811,13 +820,13 @@ class TestManifestInvariants:
         pm.sync_agent_profile(project_dir)
         _skill_path(project_dir).write_text("user customized")
         manifest_path = project_dir / MANIFEST_FILENAME
-        data = json.loads(manifest_path.read_text())
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
         data["schema_version"] = 999
         manifest_path.write_text(json.dumps(data))
 
         pm.sync_agent_profile(project_dir)
 
-        assert _skill_path(project_dir).read_text() == "demo v1"
+        assert _skill_path(project_dir).read_text(encoding="utf-8") == "demo v1"
         assert _read_manifest(project_dir)["schema_version"] == MANIFEST_SCHEMA_VERSION
 
     def test_manifest_profile_id_mismatch_triggers_full_reset(self, env):
@@ -825,7 +834,7 @@ class TestManifestInvariants:
         pm, _, project_dir = env
         pm.sync_agent_profile(project_dir)
         manifest_path = project_dir / MANIFEST_FILENAME
-        data = json.loads(manifest_path.read_text())
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
         data["profile_id"] = "other/foo"
         manifest_path.write_text(json.dumps(data))
 

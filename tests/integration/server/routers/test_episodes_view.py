@@ -94,7 +94,9 @@ class TestAdoptSourceFile:
 
     def test_using_a_file_as_a_new_episode_moves_its_text_into_the_episode_file(self, tmp_path, monkeypatch):
         client, pm, source_dir = _client(monkeypatch, tmp_path, episodes=[_entry(3, "none")], episode_id_high_water=3)
-        (source_dir / "番外.txt").write_text("番外原文\r\n第二行", encoding="utf-8")
+        # write_bytes：literal \r\n 按原样落盘。Windows 上 write_text 的默认换行翻译会把
+        # 内容里的 \n 追加写成 \r\n，拼出 \r\r\n，归一化后多出一行。
+        (source_dir / "番外.txt").write_bytes("番外原文\r\n第二行".encode())
 
         with client:
             resp = client.post("/api/v1/projects/demo/source-files/番外.txt/adopt", json={"target": "episode"})

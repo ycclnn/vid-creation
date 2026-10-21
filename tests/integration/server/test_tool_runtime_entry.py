@@ -241,6 +241,7 @@ async def test_upload_source_rejects_unsafe_or_non_text_filenames(
     assert outcome.problem.code == expected_code
 
 
+@pytest.mark.needs_symlink
 async def test_upload_source_rejects_symlinked_source_directory(tmp_path: Path) -> None:
     services = _services(tmp_path)
     project_dir = services.projects.create_project("demo")
@@ -324,7 +325,7 @@ async def test_upload_source_settles_write_before_propagating_cancellation(tmp_p
         assert await asyncio.to_thread(finished.wait, 1)
 
     assert isinstance(task_results[0], asyncio.CancelledError)
-    assert (projects.get_project_path("demo") / "source" / "novel.txt").read_text() == "hello"
+    assert (projects.get_project_path("demo") / "source" / "novel.txt").read_text(encoding="utf-8") == "hello"
 
 
 def _uploadable_project(tmp_path: Path) -> tuple[Services, ProjectScope]:

@@ -882,6 +882,7 @@ def test_v7_activation_does_not_use_unowned_same_name_storyboard_as_previous_inp
     )
 
 
+@pytest.mark.needs_symlink
 def test_v7_activation_rejects_symlinked_project_control_file_without_writes(tmp_path: Path) -> None:
     project_dir, project, _script_plan, _script = _project(tmp_path)
     project_path = project_dir / "project.json"

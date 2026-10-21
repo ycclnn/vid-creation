@@ -121,6 +121,7 @@ def test_load_on_conflict_replace_overwrites(tmp_path: Path):
     assert result.normalized_path.read_text(encoding="utf-8") == "新内容"
 
 
+@pytest.mark.needs_symlink
 def test_load_on_conflict_replace_rejects_symlinked_target(tmp_path: Path):
     project_source = tmp_path / "source"
     project_source.mkdir()

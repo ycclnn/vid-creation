@@ -112,6 +112,7 @@ def test_stale_timeline_backup_is_reclaimed_after_its_timeline_is_deleted(tmp_pa
     assert not backup.exists()
 
 
+@pytest.mark.needs_symlink
 def test_symlinked_timeline_directories_outside_project_are_left_untouched(tmp_path: Path) -> None:
     projects_root = tmp_path / "projects"
     project_dir = write_legacy_timeline_agent_turn_project(projects_root)

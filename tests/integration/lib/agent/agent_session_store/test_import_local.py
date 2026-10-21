@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,20 @@ from claude_agent_sdk import project_key_for_directory
 
 from lib.agent.agent_session_store.store import DbSessionStore
 from lib.infra.data_root_layout import DataRootLayout
+
+
+def _windows_long_paths_enabled() -> bool:
+    """Windows 未开 LongPathsEnabled（默认关）时超长路径不可创建；其余平台恒 True。"""
+    if sys.platform != "win32":
+        return True
+    try:
+        import winreg
+
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\FileSystem")
+        value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
+        return value == 1
+    except OSError:
+        return False
 
 
 def _write_fake_local_transcript(project_cwd: Path, session_id: str, sdk_root: Path):
@@ -49,6 +64,10 @@ def fake_sdk_home(tmp_path: Path, monkeypatch):
     return sdk_home
 
 
+@pytest.mark.skipif(
+    not _windows_long_paths_enabled(),
+    reason="SDK 转录目录把项目路径编进单段目录名，Windows 未开 LongPathsEnabled 时超出 MAX_PATH",
+)
 @pytest.mark.asyncio
 async def test_migrate_imports_local_jsonl(tmp_path, fake_sdk_home, session_factory):
     from lib.agent.agent_session_store.import_local import migrate_local_transcripts_to_store
@@ -74,6 +93,10 @@ async def test_migrate_imports_local_jsonl(tmp_path, fake_sdk_home, session_fact
     assert DataRootLayout(data_root).session_import_marker_path.exists()
 
 
+@pytest.mark.skipif(
+    not _windows_long_paths_enabled(),
+    reason="SDK 转录目录把项目路径编进单段目录名，Windows 未开 LongPathsEnabled 时超出 MAX_PATH",
+)
 @pytest.mark.asyncio
 async def test_migrate_is_idempotent_via_marker(tmp_path, fake_sdk_home, session_factory):
     from lib.agent.agent_session_store.import_local import migrate_local_transcripts_to_store
@@ -94,6 +117,10 @@ async def test_migrate_is_idempotent_via_marker(tmp_path, fake_sdk_home, session
     assert s2.get("skipped_via_marker") is True
 
 
+@pytest.mark.skipif(
+    not _windows_long_paths_enabled(),
+    reason="SDK 转录目录把项目路径编进单段目录名，Windows 未开 LongPathsEnabled 时超出 MAX_PATH",
+)
 @pytest.mark.asyncio
 async def test_migrate_skips_already_in_store_when_marker_missing(
     tmp_path,
@@ -120,6 +147,10 @@ async def test_migrate_skips_already_in_store_when_marker_missing(
     assert s2["failed"] == 0
 
 
+@pytest.mark.skipif(
+    not _windows_long_paths_enabled(),
+    reason="SDK 转录目录把项目路径编进单段目录名，Windows 未开 LongPathsEnabled 时超出 MAX_PATH",
+)
 @pytest.mark.asyncio
 async def test_migrate_zero_data_user(tmp_path, fake_sdk_home, session_factory):
     """No projects + no SDK dir → marker still written, migration succeeds."""

@@ -6,6 +6,7 @@
 
 import asyncio
 import json as _json
+import os
 import threading
 from pathlib import Path
 from typing import Any
@@ -860,6 +861,10 @@ def test_reference_script_plan_migration_carries_confirmation_forward(plan_only_
     assert review["fingerprint"] != before
 
 
+@pytest.mark.skipif(
+    os.name != "posix",
+    reason="1s 线程收尾预算：Windows 上 portalocker 锁释放 + blocking-guard 追踪下线程收尾超过 1s，POSIX 无此延迟",
+)
 @pytest.mark.asyncio
 async def test_reference_script_plan_migration_waits_for_prompt_authoring_draft_lock(
     plan_only_reference_project: Path, monkeypatch

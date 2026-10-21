@@ -528,14 +528,16 @@ async def migrate_data_root_layout(
     context = DataRootMigrationContext(layout=layout, session_factory=session_factory, sdk_config_dir=sdk_config_dir)
     for step in _STEPS:
         name = getattr(step, "__name__", repr(step))
-        logger.info("数据根布局迁移：执行 %s", name)
+        # 日志落盘（file handler）不在事件循环线程上写：await 之间的一次性启动日志
+        # 也走工作线程，不阻塞循环。
+        await asyncio.to_thread(logger.info, "数据根布局迁移：执行 %s", name)
         try:
             await step(context)
         except Exception:
-            logger.exception("数据根布局迁移在 %s 失败，未写完成标记，下次启动从头续跑", name)
+            await asyncio.to_thread(logger.exception, "数据根布局迁移在 %s 失败，未写完成标记，下次启动从头续跑", name)
             raise
     await asyncio.to_thread(_write_marker, marker)
-    logger.info("数据根布局迁移完成：%s", marker)
+    await asyncio.to_thread(logger.info, "数据根布局迁移完成：%s", marker)
 
 
 def _write_marker(marker: Path) -> None:

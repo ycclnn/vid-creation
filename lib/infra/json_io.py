@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, suppress
 from pathlib import Path
@@ -67,7 +68,7 @@ def atomic_write_json(path: Path, data: Any) -> None:
             json.dump(data, tmp, ensure_ascii=False, indent=2)
             tmp.flush()
             os.fsync(tmp.fileno())
-        os.replace(tmp_path, path)
+        replace_with_retry(tmp_path, path)
         tmp_path = None
     finally:
         if tmp_path is not None:
@@ -94,9 +95,24 @@ def atomic_write_bytes(path: Path, data: bytes) -> None:
             tmp.write(data)
             tmp.flush()
             os.fsync(tmp.fileno())
-        os.replace(tmp_path, path)
+        replace_with_retry(tmp_path, path)
         tmp_path = None
     finally:
         if tmp_path is not None:
             with suppress(OSError):
                 tmp_path.unlink()
+
+
+def replace_with_retry(source: Path, target: Path, *, attempts: int = 5) -> None:
+    """``os.replace`` 加短暂退避重试：Windows 上目标被并发读者以默认共享模式打开时，
+    MoveFileEx 需要的 DELETE 访问会以共享冲突（PermissionError 13）失败；POSIX 上
+    os.replace 不受打开中的读句柄影响，重试是纯 Windows 兼容路径。读者读完即关，
+    退避后重试几乎总能成功。"""
+    for attempt in range(attempts):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.05 * (attempt + 1))

@@ -88,8 +88,11 @@ class TestGridManager:
     def test_list_all_sorted_by_created_at(self, tmp_path):
         """list_all returns grids in ascending created_at order."""
         gm = GridManager(tmp_path)
+        # created_at 逐条错开：同一微秒内 create 出的三条 created_at 相同，排序平局
+        # 由 glob 遍历顺序决定，Windows 上与创建顺序不一致。
         grids = [_make_grid() for _ in range(3)]
-        for g in grids:
+        for index, g in enumerate(grids):
+            g.created_at = f"2026-01-01T00:00:0{index}+00:00"
             gm.save(g)
         loaded = gm.list_all()
         assert [g.id for g in loaded] == [g.id for g in sorted(grids, key=lambda g: g.created_at)]

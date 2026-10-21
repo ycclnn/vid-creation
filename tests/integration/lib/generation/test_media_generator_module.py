@@ -964,6 +964,7 @@ class TestMediaGenerator:
         assert current.read_bytes() == b"fake-video-data"
         assert not staged.exists()
 
+    @pytest.mark.needs_symlink
     def test_formal_video_cleanup_unlinks_a_symlink_without_touching_its_target(self, tmp_path):
         gen = _build_generator(tmp_path)
         current = gen._get_output_path("reference_videos", "E1U1")

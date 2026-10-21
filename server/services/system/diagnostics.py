@@ -76,6 +76,11 @@ def _db_url() -> str:
     raw = get_database_url()
     try:
         parsed = urlparse(raw)
+        # Windows 的 sqlite 路径带盘符（sqlite+aiosqlite:///D:\...），urlparse 会把盘符
+        # 当 netloc，urlunparse 往返丢掉一段斜杠。没有凭证与 query 时原样返回，
+        # 脱敏只在真的有 netloc / query 要遮时才走 urlparse 往返。
+        if not parsed.username and not parsed.password and not parsed.query:
+            return raw
         netloc = parsed.netloc
         if parsed.username or parsed.password:
             user = _redact_value(parsed.username) if parsed.username else ""

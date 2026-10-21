@@ -14,6 +14,14 @@ from lib.infra import app_data_dir as app_data_dir_mod
 from lib.infra import logging_config
 
 
+def _file_handlers() -> list[TimedRotatingFileHandler]:
+    """挂在 root logger 上的文件 handler：直挂或经 QueueHandler/QueueListener 异步化后的目标。"""
+    from lib.infra.logging_config import file_log_target
+
+    target = file_log_target()
+    return [target] if isinstance(target, TimedRotatingFileHandler) else []
+
+
 @pytest.fixture(autouse=True)
 def reset_root_logger():
     """每个用例前后清空 root logger handlers，避免污染。
@@ -62,8 +70,7 @@ def isolated_log_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterato
 
 def test_file_handler_registered_by_default(isolated_log_dir: Path) -> None:
     logging_config.setup_logging()
-    root = logging.getLogger()
-    file_handlers = [h for h in root.handlers if isinstance(h, TimedRotatingFileHandler)]
+    file_handlers = _file_handlers()
     assert len(file_handlers) == 1
     assert Path(file_handlers[0].baseFilename).parent == isolated_log_dir.resolve()
 
@@ -93,15 +100,14 @@ def test_mkdir_failure_graceful(isolated_log_dir: Path, monkeypatch: pytest.Monk
     logging_config.setup_logging()  # 不抛
     root = logging.getLogger()
     assert any(isinstance(h, logging.StreamHandler) for h in root.handlers)
-    assert not any(isinstance(h, TimedRotatingFileHandler) for h in root.handlers)
+    assert not _file_handlers()
 
 
 def test_idempotent(isolated_log_dir: Path) -> None:
     logging_config.setup_logging()
     logging_config.setup_logging()
     logging_config.setup_logging()
-    root = logging.getLogger()
-    file_handlers = [h for h in root.handlers if isinstance(h, TimedRotatingFileHandler)]
+    file_handlers = _file_handlers()
     assert len(file_handlers) == 1
 
 
@@ -109,8 +115,7 @@ def test_idempotent(isolated_log_dir: Path) -> None:
 def test_disabled_env_accepts_aliases(isolated_log_dir: Path, monkeypatch: pytest.MonkeyPatch, value: str) -> None:
     monkeypatch.setenv("ARCREEL_LOG_FILE_DISABLED", value)
     logging_config.setup_logging()
-    root = logging.getLogger()
-    assert not any(isinstance(h, TimedRotatingFileHandler) for h in root.handlers)
+    assert not _file_handlers()
 
 
 # --- 日志位置 + 旧位置迁入 -----------------------------------------------------
@@ -277,7 +282,7 @@ def test_log_dir_occupied_by_project_is_left_untouched(
 
     assert sorted(p.name for p in project.iterdir()) == ["project.json"]
     assert sorted(p.name for p in old_dir.iterdir()) == ["arcreel.log", "arcreel.log.2026-05-20"]
-    assert not any(isinstance(h, TimedRotatingFileHandler) for h in logging.getLogger().handlers)
+    assert not _file_handlers()
     assert [rec.levelno for rec in caplog.records if rec.name == "lib.infra.logging_config"] == [logging.WARNING]
 
 
@@ -380,8 +385,7 @@ def test_setup_logging_file_false_skips_file_handler(isolated_log_dir: Path, mon
 
     logging_config.setup_logging(file=False)
 
-    root = logging.getLogger()
-    assert not any(isinstance(h, TimedRotatingFileHandler) for h in root.handlers)
+    assert not _file_handlers()
     assert not log_dir.exists(), "file=False 不应触发 mkdir"
 
 
@@ -392,6 +396,5 @@ def test_attach_file_handler_is_idempotent(isolated_log_dir: Path) -> None:
     logging_config.attach_file_handler()
     logging_config.attach_file_handler()
 
-    root = logging.getLogger()
-    file_handlers = [h for h in root.handlers if isinstance(h, TimedRotatingFileHandler)]
+    file_handlers = _file_handlers()
     assert len(file_handlers) == 1

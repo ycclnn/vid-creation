@@ -60,6 +60,7 @@ class TestResolveSnapshotPath:
         assert isinstance(exc_info.value, BadRequestError)
         assert exc_info.value.status_code == 400
 
+    @pytest.mark.needs_symlink
     def test_rejects_a_bucket_symlink_that_leaves_the_project(self, tmp_path):
         project = _project(tmp_path)
         sentinel = _sentinel(tmp_path)
@@ -210,6 +211,7 @@ class TestSnapshotSinksActOnTheRecordedPath:
         _write_history(project, "characters", "Hero", [{"version": 1, "file": rel}], current=1)
         return VersionManager(project), link
 
+    @pytest.mark.needs_symlink
     def test_purge_removes_a_symlinked_snapshot_without_touching_its_target(self, tmp_path):
         project = _project(tmp_path)
         vm, link = self._linked_snapshot(project)
@@ -219,6 +221,7 @@ class TestSnapshotSinksActOnTheRecordedPath:
         assert not link.is_symlink()
         assert (project / "project.json").read_text(encoding="utf-8") == "{}"
 
+    @pytest.mark.needs_symlink
     def test_rename_moves_a_symlinked_snapshot_without_moving_its_target(self, tmp_path):
         project = _project(tmp_path)
         vm, link = self._linked_snapshot(project)

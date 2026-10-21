@@ -529,7 +529,12 @@ def _ensure_activation_backup(source: Path, *, stamp: int, from_version: int) ->
         try:
             if candidate.read_bytes() == content:
                 try:
-                    os.utime(candidate, None, follow_symlinks=False)
+                    # follow_symlinks 在 Windows 上不支持（NotImplementedError）；候选已过
+                    # is_symlink 预检，降级为跟随后 utime，让备份刷新在两平台同形生效。
+                    try:
+                        os.utime(candidate, None, follow_symlinks=False)
+                    except NotImplementedError:
+                        os.utime(candidate, None)
                 except (NotImplementedError, OSError):
                     continue
                 return

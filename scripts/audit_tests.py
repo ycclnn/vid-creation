@@ -1064,7 +1064,9 @@ class FileScanner:
     def __init__(self, path: Path, root: Path, tests_dir: Path, prod: ProductionIndex) -> None:
         self.path = path
         self.prod = prod
-        self.rel = str(path.relative_to(root))
+        # as_posix 与同文件其余 rel 的口径一致：Windows 上 str() 给出反斜杠路径，
+        # 报告行与单元测试断言的「tests/...」正斜杠形态失配。
+        self.rel = path.relative_to(root).as_posix()
         self.tree = ast.parse(path.read_text(encoding="utf-8"))
         self.aliases = AliasIndex(self.tree)
         self.collection = resolve_collection_scope(self.tree)

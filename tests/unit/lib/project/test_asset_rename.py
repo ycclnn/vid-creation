@@ -1151,7 +1151,7 @@ class TestDerivativeReferenceCascade:
 
         pm_with_assets.rename_asset_derivative("character", "demo", "角色A", "劲装", "夜行衣")
 
-        assert json.loads(draft_path.read_text())["units"][0]["text"] == "@[角色A/夜行衣] 推门"
+        assert json.loads(draft_path.read_text(encoding="utf-8"))["units"][0]["text"] == "@[角色A/夜行衣] 推门"
 
 
 class TestAssetDeletionPreview:

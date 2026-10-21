@@ -473,8 +473,8 @@ def test_sync_ad_project_writes_ad_variant(tmp_path: Path) -> None:
 
     sync_profile_to_project(profile, project, content_mode="ad")
 
-    assert (project / "CLAUDE.md").read_text() == "ad top"
-    assert (project / ".claude" / "skills" / "video-workflow" / "SKILL.md").read_text() == "ad skill"
+    assert (project / "CLAUDE.md").read_text(encoding="utf-8") == "ad top"
+    assert (project / ".claude" / "skills" / "video-workflow" / "SKILL.md").read_text(encoding="utf-8") == "ad skill"
     assert not (project / "CLAUDE.ad.md").exists()
 
 
@@ -607,8 +607,8 @@ def test_sync_narration_project_writes_narration_variant(tmp_path: Path) -> None
 
     sync_profile_to_project(profile, project, content_mode="narration")
 
-    assert (project / "CLAUDE.md").read_text() == "narration top"
-    assert (project / ".claude" / "skills" / "video-workflow" / "SKILL.md").read_text() == "nar skill"
+    assert (project / "CLAUDE.md").read_text(encoding="utf-8") == "narration top"
+    assert (project / ".claude" / "skills" / "video-workflow" / "SKILL.md").read_text(encoding="utf-8") == "nar skill"
     assert not (project / "CLAUDE.narration.md").exists()
     assert not (project / "CLAUDE.drama.md").exists()
 
@@ -620,7 +620,7 @@ def test_sync_drama_project_writes_drama_variant(tmp_path: Path) -> None:
     project = _fresh_project(tmp_path / "proj_root")
 
     sync_profile_to_project(profile, project, content_mode="drama")
-    assert (project / "CLAUDE.md").read_text() == "drama top"
+    assert (project / "CLAUDE.md").read_text(encoding="utf-8") == "drama top"
 
 
 def test_sync_writes_manifest_content_mode(tmp_path: Path) -> None:
@@ -630,7 +630,7 @@ def test_sync_writes_manifest_content_mode(tmp_path: Path) -> None:
     project = _fresh_project(tmp_path / "proj_root")
 
     sync_profile_to_project(profile, project, content_mode="narration")
-    manifest_data = json.loads((project / MANIFEST_FILENAME).read_text())
+    manifest_data = json.loads((project / MANIFEST_FILENAME).read_text(encoding="utf-8"))
     assert manifest_data["content_mode"] == "narration"
 
 
@@ -642,10 +642,10 @@ def test_sync_mode_mismatch_triggers_reset(tmp_path: Path) -> None:
     project = _fresh_project(tmp_path / "proj_root")
 
     sync_profile_to_project(profile, project, content_mode="narration")
-    assert (project / "CLAUDE.md").read_text() == "narration top"
+    assert (project / "CLAUDE.md").read_text(encoding="utf-8") == "narration top"
 
     sync_profile_to_project(profile, project, content_mode="drama")
-    assert (project / "CLAUDE.md").read_text() == "drama top"
+    assert (project / "CLAUDE.md").read_text(encoding="utf-8") == "drama top"
 
 
 def test_sync_legacy_manifest_migrates_without_reset(tmp_path: Path) -> None:
@@ -658,15 +658,15 @@ def test_sync_legacy_manifest_migrates_without_reset(tmp_path: Path) -> None:
     sync_profile_to_project(profile, project, content_mode="narration")
     # 2) 手工把 manifest 改成"老 manifest"形态（删 content_mode 字段）
     manifest_path = project / MANIFEST_FILENAME
-    data = json.loads(manifest_path.read_text())
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
     data.pop("content_mode", None)
     manifest_path.write_text(json.dumps(data, indent=2, sort_keys=True))
     # 3) 再次 sync，应当被认作 needs_migration，正常走 #3 unchanged，写回 mode
     sync_profile_to_project(profile, project, content_mode="narration")
-    after = json.loads(manifest_path.read_text())
+    after = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert after["content_mode"] == "narration"
     # 内容不变
-    assert (project / "CLAUDE.md").read_text() == "narration top"
+    assert (project / "CLAUDE.md").read_text(encoding="utf-8") == "narration top"
 
 
 def test_sync_invalid_mode_raises(tmp_path: Path) -> None:
@@ -694,7 +694,7 @@ def test_force_resync_picks_correct_variant(tmp_path: Path) -> None:
 
     # force_resync 应当用 narration 变体覆盖
     force_resync_profile(profile, project, content_mode="narration", paths=["CLAUDE.md"])
-    assert (project / "CLAUDE.md").read_text() == "narration top"
+    assert (project / "CLAUDE.md").read_text(encoding="utf-8") == "narration top"
 
 
 def test_force_resync_full_uses_mapping(tmp_path: Path) -> None:
@@ -704,7 +704,7 @@ def test_force_resync_full_uses_mapping(tmp_path: Path) -> None:
     profile = _make_profile(tmp_path)
     project = _fresh_project(tmp_path / "proj_root")
     force_resync_profile(profile, project, content_mode="drama")
-    assert (project / "CLAUDE.md").read_text() == "drama top"
+    assert (project / "CLAUDE.md").read_text(encoding="utf-8") == "drama top"
 
 
 @pytest.mark.parametrize("mode", ["narration", "drama", "ad"])
@@ -834,6 +834,7 @@ def test_profile_status_reports_missing_builtins_without_trusted_manifest(
     }
 
 
+@pytest.mark.needs_symlink
 def test_profile_status_reports_nested_directory_symlink(tmp_path: Path) -> None:
     from lib.agent.profile_manifest import get_profile_status, sync_profile_to_project
 
@@ -851,6 +852,7 @@ def test_profile_status_reports_nested_directory_symlink(tmp_path: Path) -> None
     }
 
 
+@pytest.mark.needs_symlink
 def test_profile_status_rejects_symlinked_profile_tree(tmp_path: Path) -> None:
     from lib.agent.profile_manifest import get_profile_status
 
@@ -892,15 +894,17 @@ def test_create_project_with_drama_mode_materializes_drama_variant(
 ) -> None:
     pm, _ = _setup_pm_with_profile(tmp_path, monkeypatch)
     project_dir = pm.create_project("demo", content_mode="drama")
-    assert (project_dir / "CLAUDE.md").read_text() == "drama top"
-    assert (project_dir / ".claude" / "skills" / "video-workflow" / "SKILL.md").read_text() == "dra skill"
+    assert (project_dir / "CLAUDE.md").read_text(encoding="utf-8") == "drama top"
+    assert (project_dir / ".claude" / "skills" / "video-workflow" / "SKILL.md").read_text(
+        encoding="utf-8"
+    ) == "dra skill"
 
 
 def test_create_project_default_is_narration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """老 caller 不传 content_mode → 默认 narration（与产品默认一致）。"""
     pm, _ = _setup_pm_with_profile(tmp_path, monkeypatch)
     project_dir = pm.create_project("demo")
-    assert (project_dir / "CLAUDE.md").read_text() == "narration top"
+    assert (project_dir / "CLAUDE.md").read_text(encoding="utf-8") == "narration top"
 
 
 def test_sync_agent_profile_reads_content_mode_from_project_json(
@@ -913,7 +917,7 @@ def test_sync_agent_profile_reads_content_mode_from_project_json(
     pj_path.write_text(json.dumps({"title": "demo", "content_mode": "drama"}))
     # 再次 sync，应当读 project.json 拿到 drama，触发 mode mismatch reset
     pm.sync_agent_profile(project_dir)
-    assert (project_dir / "CLAUDE.md").read_text() == "drama top"
+    assert (project_dir / "CLAUDE.md").read_text(encoding="utf-8") == "drama top"
 
 
 def test_sync_agent_profile_missing_mode_fallback_narration(
@@ -926,7 +930,7 @@ def test_sync_agent_profile_missing_mode_fallback_narration(
     pj_path.write_text(json.dumps({"title": "demo"}))
     pm.sync_agent_profile(project_dir)
     # 回退 narration，内容不变
-    assert (project_dir / "CLAUDE.md").read_text() == "narration top"
+    assert (project_dir / "CLAUDE.md").read_text(encoding="utf-8") == "narration top"
 
 
 def test_sync_agent_profile_invalid_mode_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -959,9 +963,9 @@ def test_sync_all_agent_profiles_isolates_corrupt_project(tmp_path: Path, monkey
     stats = pm.sync_all_agent_profiles()
     assert stats.get("aborted") is not True
     assert stats["failed_projects"] == 1
-    assert (pm.projects_dir / "good" / "CLAUDE.md").read_text() == "narration top"
+    assert (pm.projects_dir / "good" / "CLAUDE.md").read_text(encoding="utf-8") == "narration top"
     # 损坏项目的 CLAUDE.md 保持上次 sync 的 drama 内容，未被错切回 narration
-    assert (bad_dir / "CLAUDE.md").read_text() == "drama top"
+    assert (bad_dir / "CLAUDE.md").read_text(encoding="utf-8") == "drama top"
 
 
 def test_sync_all_agent_profiles_per_project_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -971,5 +975,5 @@ def test_sync_all_agent_profiles_per_project_mode(tmp_path: Path, monkeypatch: p
     # 改两个项目的内容（模拟 server 启动前 profile 已升级）
     stats = pm.sync_all_agent_profiles()
     assert stats.get("aborted") is not True
-    assert (pm.projects_dir / "a" / "CLAUDE.md").read_text() == "narration top"
-    assert (pm.projects_dir / "b" / "CLAUDE.md").read_text() == "drama top"
+    assert (pm.projects_dir / "a" / "CLAUDE.md").read_text(encoding="utf-8") == "narration top"
+    assert (pm.projects_dir / "b" / "CLAUDE.md").read_text(encoding="utf-8") == "drama top"

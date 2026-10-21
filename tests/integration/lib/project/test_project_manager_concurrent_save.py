@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -415,6 +416,10 @@ class TestSyncAfterConcurrentWrite:
 class TestConcurrentReadModifyWrite:
     """并发 read-modify-write 不应丢更新。"""
 
+    @pytest.mark.skipif(
+        os.name != "posix",
+        reason="Windows 的 msvcrt LK_LOCK 重试 10s 后抛 EDEADLOCK：24 线程串行深拷贝 + fsync + manifest 写会超时；POSIX fcntl 阻塞锁无上限",
+    )
     def test_concurrent_update_scene_asset_preserves_all(self, tmp_path: Path) -> None:
         """并发对不同 segment 调用 update_scene_asset，所有写入都必须持久化。
 

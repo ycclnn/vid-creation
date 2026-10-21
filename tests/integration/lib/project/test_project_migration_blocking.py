@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -469,6 +470,10 @@ def test_retry_keeps_the_project_blocked_when_the_chain_cannot_place_it(tmp_path
     assert load_migration_failure(project_dir) is not None
 
 
+@pytest.mark.skipif(
+    os.name != "posix",
+    reason="占位目录依赖 POSIX 的 IsADirectoryError：Windows 上 os.replace 到目录目标报 PermissionError 5，语义不同",
+)
 def test_a_verdict_that_cannot_be_persisted_fails_loud(tmp_path: Path) -> None:
     """裁决写不进磁盘时，任何守卫都读不到它——报成功等于放开一个该被阻断的项目。"""
 

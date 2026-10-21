@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from types import SimpleNamespace
@@ -20,6 +21,20 @@ from tests.fakes import (
     session_state_message,
     system_frame,
 )
+
+
+def _windows_long_paths_enabled() -> bool:
+    """Windows 未开 LongPathsEnabled（默认关）时超长路径不可创建；其余平台恒 True。"""
+    if sys.platform != "win32":
+        return True
+    try:
+        import winreg
+
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\FileSystem")
+        value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
+        return value == 1
+    except OSError:
+        return False
 
 
 class _FakeOptions:
@@ -904,6 +919,10 @@ class TestSessionManager:
         hook = mgr._options_assembler._build_file_access_hook(own_project)
         return hook, own_project, claude_home
 
+    @pytest.mark.skipif(
+        not _windows_long_paths_enabled(),
+        reason="SDK 会话目录把项目路径编进单段目录名，Windows 未开 LongPathsEnabled 时超出 MAX_PATH",
+    )
     @pytest.mark.asyncio
     async def test_file_access_hook_allows_read_sdk_tool_results(self, tmp_path, meta_store):
         """Hook allows Read for SDK tool-results of the CURRENT project.
@@ -973,6 +992,10 @@ class TestSessionManager:
         )
         assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
 
+    @pytest.mark.skipif(
+        not _windows_long_paths_enabled(),
+        reason="SDK 会话目录把项目路径编进单段目录名，Windows 未开 LongPathsEnabled 时超出 MAX_PATH",
+    )
     @pytest.mark.asyncio
     async def test_file_access_hook_allows_read_sdk_task_output(self, tmp_path, meta_store):
         """Hook allows Read for SDK task output files under /tmp/claude-*.
@@ -1320,7 +1343,7 @@ class TestJsonPostValidationHook:
         assert "回滚" in result["hookSpecificOutput"]["additionalContext"]
 
         # File should be restored
-        assert json_file.read_text() == original_content
+        assert json_file.read_text(encoding="utf-8") == original_content
 
         # Backup should be consumed (popped)
         assert "test-tool-use-id" not in backups

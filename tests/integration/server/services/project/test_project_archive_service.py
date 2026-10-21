@@ -419,6 +419,7 @@ class TestProjectArchiveService:
         imported = ProjectArtifactManifestAdapter(pm.get_project_path("demo"))
         assert all(imported.get_entry(key) is None for key in rendered)
 
+    @pytest.mark.needs_symlink
     def test_export_excludes_agent_runtime_symlinks(self, tmp_path):
         pm = ProjectManager(tmp_path / "projects")
         project_dir = _create_project(pm)
@@ -450,6 +451,7 @@ class TestProjectArchiveService:
             assert not any("CLAUDE.md" in n for n in names)
             assert "demo/project.json" in names
 
+    @pytest.mark.needs_symlink
     def test_export_excludes_broken_agent_runtime_symlinks(self, tmp_path):
         import shutil as _shutil
 
@@ -1664,6 +1666,7 @@ class TestProjectArchiveService:
         "archive_builder",
         ["absolute", "traversal", "symlink", "encrypted"],
     )
+    @pytest.mark.needs_symlink
     def test_import_rejects_unsafe_zip_members(self, tmp_path, archive_builder):
         pm = ProjectManager(tmp_path / "projects")
         service = ProjectArchiveService(pm)
@@ -1804,6 +1807,7 @@ class TestProjectArchiveService:
         assert result.project_name != "demo"
         assert not (pm.get_project_path(result.project_name) / ".arcreel").exists()
 
+    @pytest.mark.needs_symlink
     def test_import_materializes_claude_with_manifest(self, tmp_path, monkeypatch):
         """导入项目应物化 .claude 为真目录 + 写 manifest（非 symlink）。
 
@@ -1836,7 +1840,7 @@ class TestProjectArchiveService:
         # 导入触发 sync_agent_profile → 首次迁移分支 full reset → 写 manifest
         assert (imported_dir / MANIFEST_FILENAME).is_file()
         # profile 内容真实落盘
-        assert (claude_dir / "skills" / "demo" / "SKILL.md").read_text() == "demo"
+        assert (claude_dir / "skills" / "demo" / "SKILL.md").read_text(encoding="utf-8") == "demo"
 
     def test_import_overwrite_rolls_back_on_install_failure(self, tmp_path, monkeypatch):
         pm = ProjectManager(tmp_path / "projects")

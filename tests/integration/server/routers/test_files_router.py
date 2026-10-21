@@ -463,13 +463,20 @@ class TestFilesRouter:
         assert (source_dir / "a.txt").exists()
         assert [entry["episode"] for entry in pm.load_project("demo")["episodes"]] == [1]
 
+    @pytest.mark.skipif(
+        os.name != "posix",
+        reason="竞态模拟依赖 POSIX 的 unlink-while-open：Windows 上项目锁文件在请求进行中仍被 portalocker 持有，rmtree 会撞共享冲突",
+    )
     def test_source_upload_race_project_deleted_reports_project_not_found(self, tmp_path, monkeypatch):
         client, _ = _client(monkeypatch, tmp_path)
 
         class _RaceLoader:
             @staticmethod
             def load(*args, **kwargs):
-                shutil.rmtree(tmp_path / "projects" / "demo")
+                # Windows 上项目锁文件在请求进行中仍被 portalocker 持有，rmtree 会撞
+                # 共享冲突（WinError 32）；POSIX 无此限制。删得掉的都删掉即可：
+                # 用例只关心后续读取报 project_not_found。
+                shutil.rmtree(tmp_path / "projects" / "demo", ignore_errors=True)
                 raise FileNotFoundError("/server/projects/demo/source gone")
 
         monkeypatch.setattr(files, "SourceLoader", _RaceLoader)
@@ -695,9 +702,15 @@ class TestFilesRouter:
     @pytest.mark.parametrize(
         ("filename", "content", "message_key", "params"),
         [
-            ("silence.wav", wav_bytes(1.0), "bgm_silent", {}),
-            ("broken.mp3", b"not audio", "invalid_audio_file", {}),
-            ("cover.jpg", b"jpeg", "unsupported_audio_type", {"ext": ".jpg", "allowed": ".mp3, .wav, .m4a"}),
+            pytest.param("silence.wav", wav_bytes(1.0), "bgm_silent", {}, id="silent-wav"),
+            pytest.param("broken.mp3", b"not audio", "invalid_audio_file", {}, id="broken-mp3"),
+            pytest.param(
+                "cover.jpg",
+                b"jpeg",
+                "unsupported_audio_type",
+                {"ext": ".jpg", "allowed": ".mp3, .wav, .m4a"},
+                id="jpeg",
+            ),
         ],
     )
     def test_bgm_upload_refuses_unusable_audio_with_a_localized_reason(
@@ -1978,6 +1991,10 @@ class TestPublicFileRouteServesMediaOnly:
             "cover.png",
             ".claude/settings.json",
         ],
+    )
+    @pytest.mark.skipif(
+        os.path.normcase("A") == os.path.normcase("a"),
+        reason="大小写不敏感卷（Windows NTFS 默认）上大小写不同的目录名解析后归一为盘上实际大小，白名单按段比对过不了这道闸",
     )
     def test_non_media_file_returns_404(self, tmp_path, monkeypatch, rel_path):
         client, pm = _client(monkeypatch, tmp_path)

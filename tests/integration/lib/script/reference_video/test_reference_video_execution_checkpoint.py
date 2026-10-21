@@ -247,6 +247,7 @@ def test_cleanup_removes_only_task_provider_media(tmp_path: Path) -> None:
     assert not (sibling.parent / "provider_media").exists()
 
 
+@pytest.mark.needs_symlink
 def test_cleanup_unlinks_provider_media_symlink_without_deleting_its_target(tmp_path: Path) -> None:
     project_path = tmp_path / "demo"
     paid_history = project_path / "versions" / "videos" / "scene_E1S01"
@@ -285,6 +286,7 @@ def test_cleanup_removes_provider_media_junction_without_using_file_unlink(
     assert not staging_dir.exists()
 
 
+@pytest.mark.needs_symlink
 def test_cleanup_does_not_traverse_a_symlinked_task_ancestor(tmp_path: Path) -> None:
     project_path = tmp_path / "demo"
     paid_history = project_path / "versions" / "videos" / "scene_E1S01"

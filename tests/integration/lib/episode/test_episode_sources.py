@@ -3,6 +3,8 @@
 import unicodedata
 from pathlib import Path
 
+import pytest
+
 from lib.episode.episode_sources import (
     SourceOrigin,
     append_whole_source_file,
@@ -86,6 +88,7 @@ class TestWholeSourceFiles:
         }
         assert whole_source_files(project) == ["source/a.txt"]
 
+    @pytest.mark.needs_symlink
     def test_symlinked_or_missing_files_are_skipped(self, tmp_path: Path):
         outside = tmp_path / "outside.txt"
         outside.write_text(CHAPTER_B, encoding="utf-8")

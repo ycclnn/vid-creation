@@ -512,6 +512,7 @@ async def test_content_readers_return_body_and_revision_from_the_same_snapshot(t
     assert all(thread != caller_thread for thread in reader_threads)
 
 
+@pytest.mark.needs_symlink
 async def test_file_readers_share_a_business_file_allowlist_and_reject_symlinks(tmp_path: Path) -> None:
     project_dir = tmp_path / "projects" / "demo"
     (project_dir / "source").mkdir(parents=True)
@@ -576,6 +577,7 @@ async def test_file_readers_share_a_business_file_allowlist_and_reject_symlinks(
     assert traversal.problem.code == "unsafe_path"
 
 
+@pytest.mark.needs_symlink
 async def test_project_file_read_holds_the_checked_file_snapshot(tmp_path: Path, monkeypatch) -> None:
     if os.open not in os.supports_dir_fd:
         pytest.skip("requires openat-style directory descriptors")

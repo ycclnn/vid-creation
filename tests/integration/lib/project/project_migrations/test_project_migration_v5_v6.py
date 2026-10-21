@@ -428,6 +428,7 @@ def test_directory_swap_failure_restores_original_tree(tmp_path: Path, monkeypat
     assert not list(tmp_path.glob(".demo.v6-*"))
 
 
+@pytest.mark.needs_symlink
 def test_migration_preserves_broken_symlinks(tmp_path: Path) -> None:
     project_dir = tmp_path / "demo"
     _write_json(
@@ -446,6 +447,7 @@ def test_migration_preserves_broken_symlinks(tmp_path: Path) -> None:
     assert os.readlink(link) == "missing-runtime-profile.md"
 
 
+@pytest.mark.needs_symlink
 def test_migration_rejects_symlinked_asset_directory_without_touching_target(tmp_path: Path) -> None:
     project_dir = tmp_path / "demo"
     _write_json(
@@ -480,6 +482,7 @@ def test_migration_rejects_symlinked_asset_directory_without_touching_target(tmp
 
 
 @pytest.mark.parametrize("write_root", ["scripts", "drafts", "versions"])
+@pytest.mark.needs_symlink
 def test_migration_rejects_symlinked_non_asset_write_roots(tmp_path: Path, write_root: str) -> None:
     project_dir = tmp_path / "demo"
     _write_json(
@@ -512,6 +515,7 @@ def test_migration_rejects_symlinked_non_asset_write_roots(tmp_path: Path, write
     assert not list(tmp_path.glob(".demo.v6-*"))
 
 
+@pytest.mark.needs_symlink
 def test_migration_rejects_symlinked_draft_write_target(tmp_path: Path) -> None:
     project_dir = tmp_path / "demo"
     _write_json(

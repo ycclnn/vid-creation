@@ -82,6 +82,7 @@ def test_corrupt_versions_are_refused_for_the_next_episode(
         _compare_video(resolver_after_first_episode, 2)
 
 
+@pytest.mark.needs_symlink
 def test_blocked_versions_are_refused_for_the_next_episode(
     two_episode_project: Path, resolver_after_first_episode: ArtifactCurrencyResolver
 ) -> None:

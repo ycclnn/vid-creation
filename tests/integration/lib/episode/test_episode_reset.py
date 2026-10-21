@@ -397,6 +397,7 @@ def test_reset_tolerates_non_list_episodes(tmp_path: Path) -> None:
     assert _load_project(project_dir)["episodes"] == []
 
 
+@pytest.mark.needs_symlink
 def test_reset_rejects_symlinked_source_dir(tmp_path: Path) -> None:
     """source/ 是指向项目外目录的符号链接时拒绝处置，避免删除/改名外部目录中的文件。"""
     project_dir = _write_project(tmp_path)
@@ -415,6 +416,7 @@ def test_reset_rejects_symlinked_source_dir(tmp_path: Path) -> None:
     assert _load_project(project_dir) == before
 
 
+@pytest.mark.needs_symlink
 def test_reset_deletes_symlinked_episode_file_without_touching_target(tmp_path: Path) -> None:
     """单个派生集文件是符号链接时按计划正常处置：unlink/rename 只作用于链接条目本身、
     不跟随最终一段的链接目标，外部文件不受影响（与 source/ 本身是符号链接的风险不同）。"""
@@ -435,6 +437,7 @@ def test_reset_deletes_symlinked_episode_file_without_touching_target(tmp_path: 
     assert outside_target.read_text(encoding="utf-8") == "外部文件"
 
 
+@pytest.mark.needs_symlink
 def test_reset_clears_dangling_symlinked_episode_file(tmp_path: Path) -> None:
     """目标不存在的悬空符号链接同样被发现并清理，否则残留链接会在下次 plan_episodes
     写派生文件时被 EpisodePlanner 的符号链接校验硬拦截，重置的"可继续规划"承诺落空。"""
@@ -531,6 +534,7 @@ def test_reset_archives_when_any_duplicate_entry_lacks_source_range(tmp_path: Pa
     assert not derived.exists()
 
 
+@pytest.mark.needs_symlink
 def test_archive_path_increments_past_dangling_symlink_collision(tmp_path: Path) -> None:
     """留底目标名恰好被上一次遗留的悬空符号链接占用时仍按占用处理并追加序号：
     exists() 对悬空链接返回 False，只查 exists() 会让 rename() 静默覆盖旧留底。"""
@@ -552,6 +556,7 @@ def test_archive_path_increments_past_dangling_symlink_collision(tmp_path: Path)
     assert result.archived_files == [("source/episode_2.txt", "source/_episode_2.txt.1.bak")]
 
 
+@pytest.mark.needs_symlink
 def test_discover_episode_files_prefers_readable_over_dangling_alias(tmp_path: Path) -> None:
     """代表路径在悬空别名恰好排序在前时仍优先选可读文件，避免按内容读派生文件的调用方
     读到悬空链接而误判该集无内容。"""
@@ -564,6 +569,7 @@ def test_discover_episode_files_prefers_readable_over_dangling_alias(tmp_path: P
     assert discover_episode_files(project_dir)[1] == valid
 
 
+@pytest.mark.needs_symlink
 def test_discover_episode_files_skips_episode_with_only_dangling_alias(tmp_path: Path) -> None:
     """某集号全部别名都是悬空符号链接（无真实内容）时，代表路径映射里不出现该集号，
     而不是返回一个读不到内容的路径——否则孤儿条目登记会为纯悬空、无真实内容的集号
@@ -1330,6 +1336,7 @@ def test_a_failed_file_step_restores_reset_project_and_claims_exactly(
     assert remaining.read_bytes() == remaining_before
 
 
+@pytest.mark.needs_symlink
 def test_a_failed_file_step_restores_symlinked_episode_entry_without_touching_target(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -45,7 +45,9 @@ async def test_created_revision_records_author(tmp_path: Path, caller: CallerCon
     [summary] = listed.value
     assert summary.updated_by.kind == author
     stored = json.loads(
-        (tmp_path / "projects" / "demo" / "edit_timelines" / "episode_1" / f"{summary.id}.json").read_text()
+        (tmp_path / "projects" / "demo" / "edit_timelines" / "episode_1" / f"{summary.id}.json").read_text(
+            encoding="utf-8"
+        )
     )
     assert all("agent_turn" not in revision for revision in stored["revisions"])
 

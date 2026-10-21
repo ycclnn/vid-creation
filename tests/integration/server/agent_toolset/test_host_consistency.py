@@ -288,6 +288,7 @@ async def _embedded_listing(seeded_projects: ProjectManager) -> dict[str, types.
 
 
 @_SCOPED_DECLARATIONS
+@pytest.mark.needs_symlink
 async def test_both_hosts_expose_the_declared_name_schema_and_description(
     declaration: ToolDeclaration[Any, Any], seeded_projects: ProjectManager, services: Services
 ) -> None:
@@ -312,6 +313,7 @@ async def test_both_hosts_expose_the_declared_name_schema_and_description(
     [declaration for declaration in AGENT_TOOLSET if isinstance(declaration, UnscopedToolDeclaration)],
     ids=lambda declaration: declaration.name,
 )
+@pytest.mark.needs_symlink
 async def test_both_hosts_expose_an_unscoped_declaration_without_project(
     declaration: UnscopedToolDeclaration[Any, Any], seeded_projects: ProjectManager, services: Services
 ) -> None:
@@ -328,6 +330,7 @@ async def test_both_hosts_expose_an_unscoped_declaration_without_project(
     assert MIGRATION_REFUSAL_NOTE not in embedded.description
 
 
+@pytest.mark.needs_symlink
 async def test_every_tool_both_hosts_expose_is_defined_by_a_declaration(
     seeded_projects: ProjectManager, services: Services
 ) -> None:
@@ -343,6 +346,7 @@ async def test_every_tool_both_hosts_expose_is_defined_by_a_declaration(
 
 
 @_DECLARATIONS
+@pytest.mark.needs_symlink
 async def test_problems_pass_through_both_hosts_unchanged(
     declaration: AgentToolDeclaration, services: Services
 ) -> None:
@@ -367,6 +371,7 @@ async def test_problems_pass_through_both_hosts_unchanged(
 
 
 @_DECLARATIONS
+@pytest.mark.needs_symlink
 async def test_invalid_arguments_are_rejected_as_the_same_invalid_request_by_both_hosts(
     declaration: AgentToolDeclaration, seeded_projects: ProjectManager, services: Services
 ) -> None:
@@ -387,6 +392,7 @@ async def test_invalid_arguments_are_rejected_as_the_same_invalid_request_by_bot
 
 
 @_SCOPED_DECLARATIONS
+@pytest.mark.needs_symlink
 async def test_a_blocked_declaration_refuses_a_migration_failed_project_at_both_entries(
     declaration: ToolDeclaration[Any, Any], seeded_projects: ProjectManager, services: Services
 ) -> None:
@@ -422,6 +428,7 @@ async def test_a_blocked_declaration_refuses_a_migration_failed_project_at_both_
     ],
     ids=lambda declaration: declaration.name,
 )
+@pytest.mark.needs_symlink
 async def test_unblocked_declarations_reach_the_handler_on_a_migration_failed_project(
     declaration: AgentToolDeclaration, seeded_projects: ProjectManager, services: Services
 ) -> None:
@@ -447,6 +454,7 @@ async def test_unblocked_declarations_reach_the_handler_on_a_migration_failed_pr
     ],
     ids=lambda declaration: declaration.name,
 )
+@pytest.mark.needs_symlink
 async def test_declared_blocked_entries_refuse_a_migration_failed_project_before_the_handler(
     declaration: ToolDeclaration[Any, Any], seeded_projects: ProjectManager, services: Services
 ) -> None:
@@ -471,6 +479,7 @@ async def test_declared_blocked_entries_refuse_a_migration_failed_project_before
     assert problem["action"] == RETRY_MIGRATION_ACTION
 
 
+@pytest.mark.needs_symlink
 async def test_episode_script_reader_reports_the_same_migration_problem_in_both_hosts(
     seeded_projects: ProjectManager, services: Services
 ) -> None:
@@ -495,6 +504,7 @@ async def test_episode_script_reader_reports_the_same_migration_problem_in_both_
     assert problem["params"]["schema_version"] == CURRENT_PROJECT_SCHEMA_VERSION
 
 
+@pytest.mark.needs_symlink
 async def test_patch_episode_script_reports_a_missing_script_as_script_not_found_in_both_hosts(
     seeded_projects: ProjectManager, services: Services, tmp_path: Path
 ) -> None:
@@ -567,6 +577,7 @@ _PROBLEM_ON_SAMPLE = frozenset(
     ],
     ids=lambda declaration: declaration.name,
 )
+@pytest.mark.needs_symlink
 async def test_embedded_content_carries_the_same_json_as_remote_structured_content(
     declaration: AgentToolDeclaration, seeded_projects: ProjectManager, services: Services, tmp_path: Path
 ) -> None:
@@ -581,6 +592,7 @@ async def test_embedded_content_carries_the_same_json_as_remote_structured_conte
     assert _texts(embedded) == _texts(remote)
 
 
+@pytest.mark.needs_symlink
 async def test_contact_sheets_reach_both_hosts_as_the_same_image_blocks(
     seeded_projects: ProjectManager, services: Services
 ) -> None:
@@ -614,6 +626,7 @@ async def test_contact_sheets_reach_both_hosts_as_the_same_image_blocks(
     assert isinstance(embedded.content[-1], types.ImageContent)
 
 
+@pytest.mark.needs_symlink
 async def test_a_summary_precedes_the_structured_json_in_both_hosts(services: Services) -> None:
     declaration = next(declaration for declaration in AGENT_TOOLSET if declaration.name == "get_project_content")
     summarized = replace(
@@ -633,6 +646,7 @@ async def test_a_summary_precedes_the_structured_json_in_both_hosts(services: Se
     "project",
     [pytest.param(None, id="missing"), 7, "", "   ", "../demo", "demo/..", "absent", "empty", "escape"],
 )
+@pytest.mark.needs_symlink
 async def test_remote_project_locating_failures_are_invalid_project(
     declaration: ToolDeclaration[Any, Any], project: object, services: Services
 ) -> None:
@@ -650,6 +664,7 @@ async def test_remote_project_locating_failures_are_invalid_project(
     assert result.structuredContent["problem"]["code"] == "invalid_project"
 
 
+@pytest.mark.needs_symlink
 async def test_embedded_terminal_generation_result_has_the_shape_remote_polling_reads_at_the_terminal_state(
     seeded_projects: ProjectManager, services: Services, db_factory
 ) -> None:
@@ -703,6 +718,7 @@ async def test_embedded_terminal_generation_result_has_the_shape_remote_polling_
     waiter.assert_not_awaited()
 
 
+@pytest.mark.needs_symlink
 async def test_grid_list_only_preview_is_the_same_json_in_both_hosts(
     seeded_projects: ProjectManager, services: Services
 ) -> None:
@@ -733,6 +749,7 @@ async def test_grid_list_only_preview_is_the_same_json_in_both_hosts(
     assert _texts(embedded) == _texts(remote)
 
 
+@pytest.mark.needs_symlink
 async def test_a_text_generation_dry_run_returns_the_same_prompt_in_both_hosts(
     seeded_projects: ProjectManager, services: Services, tmp_path: Path
 ) -> None:

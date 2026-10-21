@@ -213,6 +213,8 @@ class TestEndpointCatalog:
             "kling-image",
             "kling-video",
             "gemini-video",
+            "senseaudio-image",
+            "senseaudio-video",
             "openai-tts",
             "dashscope-tts",
             "minimax-tts",

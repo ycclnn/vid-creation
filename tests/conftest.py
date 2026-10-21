@@ -30,6 +30,7 @@ import tempfile
 import uuid as _uuid
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -642,6 +643,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
     _enforce_classification_markers(items)
     _skip_local_port_tests_without_bind_permission(items)
+    _skip_symlink_tests_without_privilege(items)
 
 
 def _skip_local_port_tests_without_bind_permission(items: list[pytest.Item]) -> None:
@@ -660,6 +662,33 @@ def _skip_local_port_tests_without_bind_permission(items: list[pytest.Item]) -> 
         skip = pytest.mark.skip(reason="当前环境禁止绑定 127.0.0.1 上的端口；在允许绑定本地端口的环境中运行此用例")
         for item in port_items:
             item.add_marker(skip)
+
+
+@lru_cache(maxsize=1)
+def _symlink_privilege_probe() -> bool:
+    """探测当前进程能否创建符号链接；结果按进程缓存。"""
+
+    with tempfile.TemporaryDirectory() as base:
+        link = Path(base) / "probe-link"
+        try:
+            link.symlink_to(base, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            return False
+    return True
+
+
+def _skip_symlink_tests_without_privilege(items: list[pytest.Item]) -> None:
+    """环境禁止创建符号链接时，把 `needs_symlink` 用例标成带原因的 skip。
+
+    Windows 无特权进程拒绝 symlink（WinError 1314）；这类用例在那里只会以 OSError 失败，
+    跳过并注明原因，提示到允许符号链接的环境（Linux、macOS、WSL2 或特权 Windows）里再跑一次。
+    """
+    symlink_items = [item for item in items if item.get_closest_marker("needs_symlink") is not None]
+    if not symlink_items or _symlink_privilege_probe():
+        return
+    skip = pytest.mark.skip(reason="当前环境禁止创建符号链接；在允许符号链接的环境中运行此用例")
+    for item in symlink_items:
+        item.add_marker(skip)
 
 
 def _enforce_classification_markers(items: list[pytest.Item]) -> None:

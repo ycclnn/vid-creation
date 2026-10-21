@@ -170,6 +170,7 @@ class TestOverview:
         store.write("tone.md", b"no frontmatter here\n")
         assert store.overview()["files"][0]["frontmatter"] is None
 
+    @pytest.mark.needs_symlink
     def test_symlink_escaping_the_directory_is_not_listed(self, store, tmp_path):
         outside = tmp_path / "outside.md"
         outside.write_text("secret", encoding="utf-8")

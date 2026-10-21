@@ -965,6 +965,7 @@ class TestGenerationTasks:
             )
         assert fake_generator.video_calls == []
 
+    @pytest.mark.needs_symlink
     async def test_execute_video_task_end_frame_canonical_path_symlink_fails_hard(self, monkeypatch, tmp_path):
         """尾帧字段值恰是当前镜头的 canonical 相对路径，但磁盘上那个位置被替换成指向别处
         （另一镜头快照）的符号链接：try_safe_join / safe_join 都会展开符号链接把两侧解析到
@@ -993,6 +994,7 @@ class TestGenerationTasks:
             )
         assert fake_generator.video_calls == []
 
+    @pytest.mark.needs_symlink
     async def test_execute_video_task_end_frame_parent_dir_symlink_fails_hard(self, monkeypatch, tmp_path):
         """符号链接调包不止发生在文件名这一级：`end_frames/` 目录本身被替换成指向项目内
         别的目录的符号链接时，最终文件名一致、realpath 展开后两侧路径也相等，仅检查文件名
@@ -1021,6 +1023,7 @@ class TestGenerationTasks:
             )
         assert fake_generator.video_calls == []
 
+    @pytest.mark.needs_symlink
     async def test_execute_video_task_end_frame_parent_dir_junction_fails_hard(self, monkeypatch, tmp_path):
         """Windows 原生环境下目录联接（junction）是独立于符号链接的 reparse point 类型，
         `Path.is_symlink()` 识别不到；`end_frames/` 被联接到项目内别的目录时须靠 `is_junction()`

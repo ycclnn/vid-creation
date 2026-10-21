@@ -41,6 +41,7 @@ def test_whole_source_is_any_non_blank_registered_file(docs: list[SourceDoc], ex
 
 
 @pytest.mark.parametrize("origin", ["own", "whole_source"])
+@pytest.mark.needs_symlink
 def test_episode_source_is_a_non_blank_regular_file(tmp_path: Path, origin: str) -> None:
     source = tmp_path / "source"
     source.mkdir()

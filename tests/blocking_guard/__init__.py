@@ -94,6 +94,10 @@ _STDLIB_DIRS = tuple(
 _ALWAYS_ALLOWED_FRAMES: tuple[tuple[str, frozenset[str] | None], ...] = (
     ("posixpath.py", frozenset({"realpath", "_joinrealpath"})),
     ("<frozen posixpath>", frozenset({"realpath", "_joinrealpath"})),
+    # Windows 上 ntpath.realpath 对任意路径都经 getcwd 解析盘符相对性：claude_agent_sdk
+    # 的路径规范化在事件循环线程上做这一次，与 asyncpg 解析连接参数同类，不是业务阻塞。
+    ("ntpath.py", frozenset({"realpath", "_joinrealpath"})),
+    ("<frozen ntpath>", frozenset({"realpath", "_joinrealpath"})),
     ("linecache.py", frozenset({"getlines", "updatecache", "checkcache", "lazycache"})),
     ("<frozen importlib._bootstrap>", None),
     ("<frozen importlib._bootstrap_external>", None),

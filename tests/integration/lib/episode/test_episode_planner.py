@@ -1844,6 +1844,7 @@ class TestEpisodeFileWrites:
         assert (project_dir / "source" / "episode_1.txt").read_text(encoding="utf-8") == sentinel
         assert (project_dir / "source" / "episode_2.txt").read_text(encoding="utf-8") == SOURCE[a:]
 
+    @pytest.mark.needs_symlink
     async def test_a_symlinked_file_on_the_new_episode_id_is_archived_not_followed(self, tmp_path: Path):
         project_dir = _write_project(tmp_path, episodes=[])
         outside = tmp_path / "outside.txt"

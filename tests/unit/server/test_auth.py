@@ -173,7 +173,7 @@ class TestEnsureAuthPassword:
         env.pop("AUTH_PASSWORD", None)
         with patch.dict(os.environ, env, clear=True):
             password = auth_module.ensure_auth_password(env_path=str(env_file))
-            content = env_file.read_text()
+            content = env_file.read_text(encoding="utf-8")
             assert f"AUTH_PASSWORD={password}" in content
             # 原有的其他行应保留
             assert "SOME_VAR=hello" in content
@@ -187,7 +187,7 @@ class TestEnsureAuthPassword:
         env.pop("AUTH_PASSWORD", None)
         with patch.dict(os.environ, env, clear=True):
             password = auth_module.ensure_auth_password(env_path=str(env_file))
-            content = env_file.read_text()
+            content = env_file.read_text(encoding="utf-8")
             assert f"AUTH_PASSWORD={password}" in content
             # 原有内容应保留
             assert "SOME_VAR=hello" in content

@@ -127,6 +127,7 @@ class TestComputeAssetFingerprints:
 
         assert compute_asset_fingerprints(tmp_path) == {}
 
+    @pytest.mark.needs_symlink
     def test_ignores_symlinked_media_directories(self, tmp_path):
         """目录软链不下探：链接目标不是项目自己的媒体。"""
         derivatives = tmp_path / "characters" / "derivatives"
@@ -138,6 +139,7 @@ class TestComputeAssetFingerprints:
 
         assert compute_asset_fingerprints(tmp_path) == {}
 
+    @pytest.mark.needs_symlink
     def test_ignores_a_symlinked_media_subdir_itself(self, tmp_path):
         """媒体子目录本身是软链时同样不下探，与其内部各层同口径。"""
         outside = tmp_path / "outside"

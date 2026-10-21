@@ -159,6 +159,7 @@ def test_revision_payload_order_is_stable_across_unicode_filename_spelling(tmp_p
     assert after.revision == before.revision
 
 
+@pytest.mark.needs_symlink
 def test_scoped_revision_rejects_escape_symlink_and_invalid_scope(tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()
@@ -207,6 +208,7 @@ def test_scoped_revision_rejects_unreadable_file_on_posix(tmp_path: Path) -> Non
     assert denied.blockers[0].code == "source_unreadable"
 
 
+@pytest.mark.needs_symlink
 def test_all_scope_reports_candidate_symlink_instead_of_skipping_it(tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()
@@ -220,6 +222,7 @@ def test_all_scope_reports_candidate_symlink_instead_of_skipping_it(tmp_path: Pa
     assert [(b.code, b.path) for b in result.blockers] == [("source_symlink", "source/novel.txt")]
 
 
+@pytest.mark.needs_symlink
 def test_all_scope_reports_symlinked_source_dir(tmp_path: Path) -> None:
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -234,6 +237,7 @@ def test_all_scope_reports_symlinked_source_dir(tmp_path: Path) -> None:
     assert [(b.code, b.path) for b in result.blockers] == [("source_symlink", "source")]
 
 
+@pytest.mark.needs_symlink
 def test_all_scope_reports_registered_symlink_beside_own_source_episode_files(tmp_path: Path) -> None:
     """登记为整本源文的符号链接照常以阻塞项报出，自带原文的集文件不受影响。"""
     source = tmp_path / "source"
@@ -249,6 +253,7 @@ def test_all_scope_reports_registered_symlink_beside_own_source_episode_files(tm
     assert [(b.code, b.path) for b in result.blockers] == [("source_symlink", "source/linked.md")]
 
 
+@pytest.mark.needs_symlink
 def test_all_scope_ignores_unregistered_symlink(tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()

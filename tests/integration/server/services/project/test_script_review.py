@@ -1136,7 +1136,7 @@ class TestReferenceVideoGateFlow:
         tiers = await service.get_reference_duration_tiers("demo", 1, plan["units"])
 
         assert state["content"]["units"][0]["duration_seconds"] == 5
-        assert json.loads(path.read_text())["units"][0]["duration_seconds"] == 5
+        assert json.loads(path.read_text(encoding="utf-8"))["units"][0]["duration_seconds"] == 5
         assert state["supported_durations"] is None
         assert tiers["units"]["E1U01"]["allowed_durations"] is None
         assert tiers["units"]["E1U01"]["problem"]["code"] == "reference_capability_unavailable"

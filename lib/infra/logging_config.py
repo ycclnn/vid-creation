@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import atexit
 import contextlib
 import logging
 import os
+import queue
 import shutil
-from logging.handlers import TimedRotatingFileHandler
+from logging.handlers import QueueHandler, QueueListener, TimedRotatingFileHandler
 from pathlib import Path
 
 from lib.infra.data_root_layout import PROJECT_FILENAME, DataRootLayout, is_project_dir
@@ -14,6 +16,7 @@ from lib.infra.env_init import PROJECT_ROOT
 
 _HANDLER_ATTR = "_arcreel_logging"
 _FILE_HANDLER_ATTR = "_arcreel_file_logging"
+_FILE_LISTENER_ATTR = "_arcreel_file_listener"
 _DISABLED_TRUTHY = frozenset({"1", "true", "yes"})
 
 
@@ -197,7 +200,38 @@ def attach_file_handler(formatter: logging.Formatter | None = None) -> None:
             utc=False,
         )
         file_handler.setFormatter(formatter)
-        setattr(file_handler, _FILE_HANDLER_ATTR, True)
-        root.addHandler(file_handler)
+        # 落盘经 QueueHandler/QueueListener 异步化：请求、任务与启动路径的日志不再在
+        # 事件循环线程上写文件（同步 I/O 阻塞循环），listener 在独立线程消费队列。
+        queue_handler = QueueHandler(queue.Queue(-1))
+        queue_handler.setFormatter(formatter)
+        setattr(queue_handler, _FILE_HANDLER_ATTR, True)
+        listener = QueueListener(queue_handler.queue, file_handler, respect_handler_level=False)
+        listener.start()
+        setattr(queue_handler, _FILE_LISTENER_ATTR, listener)
+        _atexit_register_listener_stop(listener)
+        root.addHandler(queue_handler)
     except Exception as exc:
         logging.getLogger(__name__).warning("file logging disabled: %s", exc)
+
+
+def _atexit_register_listener_stop(listener: QueueListener) -> None:
+    """进程退出时停掉 listener 并关闭文件 handler，队列里未消费的记录先落盘。"""
+
+    def _stop() -> None:
+        listener.stop()
+
+    atexit.register(_stop)
+
+
+def file_log_target() -> logging.Handler | None:
+    """挂在 root logger 上的文件日志终点：异步化后是 listener 背后的 TimedRotatingFileHandler。"""
+
+    for handler in logging.getLogger().handlers:
+        listener = getattr(handler, _FILE_LISTENER_ATTR, None)
+        if listener is not None:
+            for target in listener.handlers:
+                return target
+    for handler in logging.getLogger().handlers:
+        if getattr(handler, _FILE_HANDLER_ATTR, False) and not getattr(handler, _FILE_LISTENER_ATTR, False):
+            return handler
+    return None

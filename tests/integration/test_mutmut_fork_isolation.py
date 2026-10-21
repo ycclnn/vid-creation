@@ -82,7 +82,20 @@ def test_mutmut_session_uses_private_basetemp_outside_shared_root(tmp_path: Path
         f"::{test_mutmut_session_uses_private_basetemp_outside_shared_root.__name__}"
     )
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *_mutmut_pytest_args(), nodeid],
+        # -o timeout_method=thread：Windows 上 signal 法（pyproject 默认）在 SIGALRM 缺失时
+        # pytest_timeout 直接 INTERNALERROR；探针用例不依赖超时法，两平台都用 thread 法。
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            "-o",
+            "timeout_method=thread",
+            *_mutmut_pytest_args(),
+            nodeid,
+        ],
         cwd=str(_REPO_ROOT),
         env=env,
         capture_output=True,
@@ -93,6 +106,7 @@ def test_mutmut_session_uses_private_basetemp_outside_shared_root(tmp_path: Path
     assert result.returncode == 0, result.stdout + result.stderr
     # 共享根从未被建立；私有 basetemp 与临时库都已由该会话自己回收。
     assert list(temproot.iterdir()) == []
+
     assert list(tmpdir.iterdir()) == []
 
 

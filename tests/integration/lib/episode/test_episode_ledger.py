@@ -20,7 +20,9 @@ def _project(tmp_path: Path, *, novel: str | None = NOVEL) -> Path:
     d = tmp_path / "demo"
     (d / "source").mkdir(parents=True)
     if novel is not None:
-        (d / "source" / "novel.txt").write_text(novel, encoding="utf-8")
+        # newline=""：literal \r 字符按原样落盘。Windows 上 write_text 的默认换行翻译会把
+        # “…\r\n…” 写成“…\r\r\n…”，读回多出一行，指纹与 LF 版本失配。
+        (d / "source" / "novel.txt").write_text(novel, encoding="utf-8", newline="")
     return d
 
 

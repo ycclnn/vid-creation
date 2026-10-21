@@ -69,9 +69,9 @@ async def test_uploads_list_in_upload_order(blank_pm: ProjectManager) -> None:
 @pytest.mark.parametrize(
     ("filename", "content", "code"),
     [
-        ("silence.wav", wav_bytes(1.0), "bgm_silent"),
-        ("broken.mp3", b"not audio at all", "bgm_invalid_audio"),
-        ("cover.png", wav_bytes(1.0, tone_hz=330), "bgm_unsupported_type"),
+        pytest.param("silence.wav", wav_bytes(1.0), "bgm_silent", id="silent-wav"),
+        pytest.param("broken.mp3", b"not audio at all", "bgm_invalid_audio", id="broken-mp3"),
+        pytest.param("cover.png", wav_bytes(1.0, tone_hz=330), "bgm_unsupported_type", id="png"),
     ],
 )
 async def test_unusable_uploads_are_refused_without_leaving_files(

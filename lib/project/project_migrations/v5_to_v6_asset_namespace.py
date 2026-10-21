@@ -318,7 +318,7 @@ def _rewrite_legacy_markdown_drafts(project_dir: Path, occurrences: list[_AssetO
         text = path.read_text(encoding="utf-8")
         rewritten = _rewrite_text(text, {}, typed, mention_owners)
         if rewritten != text:
-            path.write_text(rewritten, encoding="utf-8")
+            path.write_text(rewritten, encoding="utf-8", newline="")
 
 
 def _record_for_stem(

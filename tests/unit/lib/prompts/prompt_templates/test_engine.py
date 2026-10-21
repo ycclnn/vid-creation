@@ -117,7 +117,7 @@ def test_partial_frontmatter_accepts_only_boolean_protected(tmp_path):
 
 def test_duplicate_id_rejected_at_load(tmp_path):
     path = write_template(tmp_path, "{{ name }}")
-    (tmp_path / "duplicate.md").write_text(path.read_text(), encoding="utf-8")
+    (tmp_path / "duplicate.md").write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
     with pytest.raises(TemplateError, match="重复"):
         PromptTemplates(tmp_path)
 

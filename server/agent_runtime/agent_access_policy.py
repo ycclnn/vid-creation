@@ -614,7 +614,9 @@ class AgentAccessPolicy:
         """
         if self._is_user_memory_path(resolved, user_id=user_id):
             return True, None
-        if resolved.is_relative_to(project_cwd):
+        # project_cwd 与 resolved 同口径比对：Windows 上盘符相对路径（如 "/x"）不是绝对路径，
+        # 直接 is_relative_to 会让 resolve 后的目标与相对 cwd 失配，cwd 内的读被误拒。
+        if resolved.is_relative_to(project_cwd) or resolved.is_relative_to(project_cwd.resolve()):
             return True, None
         # SDK tool-results 例外（已 resolve 的基准见 _claude_projects_dir_resolved）。
         claude_projects_dir = self._claude_projects_dir_resolved
@@ -623,7 +625,12 @@ class AgentAccessPolicy:
             if resolved.is_relative_to(sdk_project_dir) and "tool-results" in resolved.parts:
                 return True, None
         # SDK 后台任务输出例外（前缀计算见 _sdk_tmp_prefixes，实例内缓存一次）。
-        if str(resolved).startswith(self._sdk_tmp_prefixes) and "tasks" in resolved.parts:
+        # 字面前缀（/tmp/claude-）按 posix 形态比对：Windows 上 str(Path) 给出反斜杠路径，
+        # 原样比对会让字面前缀失配；resolve 后的目标照旧与 tmp 根前缀比对。
+        if (
+            str(resolved).startswith(self._sdk_tmp_prefixes)
+            or str(resolved).replace("\\", "/").startswith(self._sdk_tmp_prefixes)
+        ) and "tasks" in resolved.parts:
             return True, None
         # 数据根内：当前项目与当前用户的记忆已在上面放行，其余一律拒
         if self._is_within_for_compare(resolved, self._layout.projects_dir):

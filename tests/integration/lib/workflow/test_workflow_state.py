@@ -476,6 +476,7 @@ def test_media_paths_must_resolve_to_project_files_before_becoming_current(tmp_p
     assert status.next_action.type == "none"
 
 
+@pytest.mark.needs_symlink
 def test_unsafe_source_is_an_issue_instead_of_skipping_or_raising(tmp_path: Path) -> None:
     pm, project_path = _make_project(tmp_path, "narration")
     target = project_path / "target.txt"
@@ -566,7 +567,8 @@ def test_narration_progresses_through_storyboard_video_to_edit(tmp_path: Path) -
     assert ready.content.episode_complete
 
     # 剪辑时间线目录读不了时停在「剪辑」一步并报 issue，不让整个状态查询失败。
-    if os.geteuid() != 0:
+    # geteuid 是 POSIX 专属常量，Windows 上不存在；chmod(0) 的权限语义也只在 POSIX 有意义。
+    if os.name == "posix" and os.geteuid() != 0:
         edit_root = project_path / "edit_timelines"
         edit_root.chmod(0)
         try:
@@ -1746,6 +1748,7 @@ def test_schema8_workflow_does_not_parse_an_unclaimed_malformed_script(tmp_path:
     assert status.next_action.type == "generate_script"
 
 
+@pytest.mark.needs_symlink
 def test_schema8_manifest_reports_current_stale_missing_and_blocked_without_file_fallback(tmp_path: Path) -> None:
     pm, project_path = _make_project(tmp_path, "ad")
     sheet_path = "characters/Alice.png"

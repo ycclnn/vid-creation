@@ -24,11 +24,11 @@ def pm_tmp(tmp_path):
 def test_writing_model_settings_migrates_legacy(pm_tmp):
     pm, root = pm_tmp
     # 写入 new-style 配置
-    project = json.loads((root / "demo" / "project.json").read_text())
+    project = json.loads((root / "demo" / "project.json").read_text(encoding="utf-8"))
     project["model_settings"] = {"gemini-aistudio/veo-3.1": {"resolution": "720p"}}
     pm.save_project("demo", project)
 
-    saved = json.loads((root / "demo" / "project.json").read_text())
+    saved = json.loads((root / "demo" / "project.json").read_text(encoding="utf-8"))
     # legacy 应被清空（特定模型那条）
     assert saved.get("video_model_settings", {}).get("veo-3.1") in (None, {})
     # new-style 保持
@@ -38,24 +38,24 @@ def test_writing_model_settings_migrates_legacy(pm_tmp):
 def test_save_without_model_settings_preserves_legacy(pm_tmp):
     """若本次保存未改动 model_settings，legacy 字段保留（读路径仍然兼容）。"""
     pm, root = pm_tmp
-    project = json.loads((root / "demo" / "project.json").read_text())
+    project = json.loads((root / "demo" / "project.json").read_text(encoding="utf-8"))
     project["title"] = "hello"
     pm.save_project("demo", project)
 
-    saved = json.loads((root / "demo" / "project.json").read_text())
+    saved = json.loads((root / "demo" / "project.json").read_text(encoding="utf-8"))
     assert saved["video_model_settings"]["veo-3.1"]["resolution"] == "1080p"
 
 
 def test_writing_model_settings_for_different_model_preserves_unrelated_legacy(pm_tmp):
     """迁移只影响命中的 model_id，未命中的 legacy 条目保留。"""
     pm, root = pm_tmp
-    project = json.loads((root / "demo" / "project.json").read_text())
+    project = json.loads((root / "demo" / "project.json").read_text(encoding="utf-8"))
     # 添加一个不相关 legacy 项
     project["video_model_settings"]["some-other-model"] = {"resolution": "480p"}
     project["model_settings"] = {"gemini-aistudio/veo-3.1": {"resolution": "720p"}}
     pm.save_project("demo", project)
 
-    saved = json.loads((root / "demo" / "project.json").read_text())
+    saved = json.loads((root / "demo" / "project.json").read_text(encoding="utf-8"))
     assert saved.get("video_model_settings", {}).get("veo-3.1") in (None, {})
     # 不相关项保留
     assert saved["video_model_settings"]["some-other-model"]["resolution"] == "480p"
@@ -64,11 +64,11 @@ def test_writing_model_settings_for_different_model_preserves_unrelated_legacy(p
 def test_legacy_dict_cleared_when_all_entries_migrated(pm_tmp):
     """legacy dict 完全为空时整个字段被删除（干净）。"""
     pm, root = pm_tmp
-    project = json.loads((root / "demo" / "project.json").read_text())
+    project = json.loads((root / "demo" / "project.json").read_text(encoding="utf-8"))
     project["model_settings"] = {"gemini-aistudio/veo-3.1": {"resolution": "720p"}}
     pm.save_project("demo", project)
 
-    saved = json.loads((root / "demo" / "project.json").read_text())
+    saved = json.loads((root / "demo" / "project.json").read_text(encoding="utf-8"))
     # legacy dict 已整个删除
     assert "video_model_settings" not in saved
 
@@ -76,10 +76,10 @@ def test_legacy_dict_cleared_when_all_entries_migrated(pm_tmp):
 def test_empty_resolution_in_new_does_not_migrate_legacy(pm_tmp):
     """新 model_settings 里的 resolution 为空串/None 视为未配置，不触发迁移。"""
     pm, root = pm_tmp
-    project = json.loads((root / "demo" / "project.json").read_text())
+    project = json.loads((root / "demo" / "project.json").read_text(encoding="utf-8"))
     project["model_settings"] = {"gemini-aistudio/veo-3.1": {"resolution": ""}}
     pm.save_project("demo", project)
 
-    saved = json.loads((root / "demo" / "project.json").read_text())
+    saved = json.loads((root / "demo" / "project.json").read_text(encoding="utf-8"))
     # legacy 保留（因为新字段没真正配置）
     assert saved["video_model_settings"]["veo-3.1"]["resolution"] == "1080p"

@@ -136,6 +136,7 @@ async def test_legacy_files_join_a_library_created_before_migration(
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="symlinks require admin on Windows")
+@pytest.mark.needs_symlink
 async def test_symlinked_legacy_library_is_renamed_as_link(
     tmp_path: Path, projects: ProjectManager, session_factory: async_sessionmaker[AsyncSession]
 ) -> None:

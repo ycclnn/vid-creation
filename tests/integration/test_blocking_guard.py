@@ -31,6 +31,9 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _EXEMPTIONS = Path("tests/blocking_guard/exemptions.toml")
+# 报文里的相对路径是护栏常量的字面正斜杠形态：Windows 上 f"{Path}" 给出反斜杠，
+# 断言与输出失配。
+_EXEMPTIONS_RELPATH_TEXT = "tests/blocking_guard/exemptions.toml"
 # 用例与替身放在会话目录的 tests/ 下：护栏按这个目录区分测试自身驱动的阻塞。
 _PROBE_RELPATH = Path("tests/test_probe.py")
 
@@ -51,7 +54,7 @@ from lib.artifacts.version_manager import VersionManager
 
 async def read_or_default(path: Path) -> str:
     try:
-        return path.read_text()
+        return path.read_text(encoding="utf-8")
     except Exception:
         return "default"
 
@@ -61,7 +64,7 @@ async def read_in_thread(path: Path) -> str:
 
 
 def read_sync(path: Path) -> str:
-    return path.read_text()
+    return path.read_text(encoding="utf-8")
 
 
 async def load_with(loader, path: Path) -> str:
@@ -74,7 +77,7 @@ async def load_with_async(loader, path: Path) -> str:
 
 @cache
 def load_once(path: Path) -> str:
-    return path.read_text()
+    return path.read_text(encoding="utf-8")
 
 
 async def read_cached(path: Path) -> str:
@@ -83,7 +86,7 @@ async def read_cached(path: Path) -> str:
 
 @lru_cache(maxsize=1)
 def load_bounded(path: Path) -> str:
-    return path.read_text()
+    return path.read_text(encoding="utf-8")
 
 
 async def read_bounded_cache(path: Path) -> str:
@@ -91,7 +94,7 @@ async def read_bounded_cache(path: Path) -> str:
 
 
 async def exempted_read(path: Path) -> str:
-    return path.read_text()
+    return path.read_text(encoding="utf-8")
 
 
 async def hold_project_lock(project_dir: Path) -> None:
@@ -154,7 +157,7 @@ app = FastAPI()
 
 @app.get("/read")
 async def read(path: str) -> dict:
-    return {"text": Path(path).read_text()}
+    return {"text": Path(path).read_text(encoding="utf-8")}
 """
 
 _PROBE = """
@@ -182,7 +185,7 @@ async def test_offloaded_read(tmp_path):
 
 
 def _disk_loader(path):
-    return path.read_text()
+    return path.read_text(encoding="utf-8")
 
 
 async def _async_disk_loader(path):
@@ -505,7 +508,7 @@ def test_full_run_fails_on_untriggered_exemptions_but_partial_run_does_not(tmp_p
     partial = _run(root, "-k", "offloaded")
 
     assert full.returncode == pytest.ExitCode.TESTS_FAILED, full.stdout
-    assert f"永久豁免未触发，请从 {_EXEMPTIONS} 删除：{stale}" in full.stdout
+    assert f"永久豁免未触发，请从 {_EXEMPTIONS_RELPATH_TEXT} 删除：{stale}" in full.stdout
     assert partial.returncode == 0, partial.stdout
     assert stale not in partial.stdout
 
@@ -525,7 +528,7 @@ def test_expect_all_exemptions_option_reports_untriggered_exemptions_on_selected
     run = _run(root, "--blocking-guard-expect-all-exemptions", *selection)
 
     assert run.returncode == pytest.ExitCode.TESTS_FAILED, run.stdout
-    assert f"永久豁免未触发，请从 {_EXEMPTIONS} 删除：{stale}" in run.stdout
+    assert f"永久豁免未触发，请从 {_EXEMPTIONS_RELPATH_TEXT} 删除：{stale}" in run.stdout
 
 
 def test_expect_all_exemptions_option_passes_when_every_exemption_is_triggered(tmp_path: Path):

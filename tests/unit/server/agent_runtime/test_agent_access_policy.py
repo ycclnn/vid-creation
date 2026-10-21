@@ -57,18 +57,21 @@ def _cwd(policy: AgentAccessPolicy) -> Path:
 def test_pure_construction_with_fake_roots() -> None:
     """假根路径（磁盘上不存在）+ sandbox_enabled 即可纯构造，裁决照常工作。"""
     fake = Path("/nonexistent/fake-root")
+    # 根路径先 resolve：类只消费 resolve 后的根（SessionManager 同口径）。Windows 上以 "/"
+    # 起头的路径是盘符相对路径，不 resolve 会让敏感表与目标失配。
+    project_root = (fake / "repo").resolve()
     policy = AgentAccessPolicy(
-        project_root=fake / "repo",
-        data_root=fake / "repo" / "projects",
-        agent_profile_root=fake / "profile",
+        project_root=project_root,
+        data_root=project_root / "projects",
+        agent_profile_root=(fake / "profile").resolve(),
         sandbox_enabled=False,
-        claude_projects_dir=fake / "claude" / "projects",
+        claude_projects_dir=(fake / "claude" / "projects").resolve(),
     )
     assert policy.sandbox_enabled is False
-    cwd = DataRootLayout(fake / "repo" / "projects").projects_dir / "demo"
+    cwd = DataRootLayout(project_root / "projects").projects_dir / "demo"
     allowed, _ = policy.check_path_access(str(cwd / "data.json"), "Read", cwd, user_id=_USER_ID)
     assert allowed
-    allowed, reason = policy.check_path_access(str(fake / "repo" / ".env"), "Read", cwd, user_id=_USER_ID)
+    allowed, reason = policy.check_path_access(str(project_root / ".env"), "Read", cwd, user_id=_USER_ID)
     assert not allowed
     assert reason
     assert "敏感文件" in reason
@@ -284,6 +287,7 @@ def test_write_protected_case_variants_denied(policy: AgentAccessPolicy, tool: s
 
 
 @pytest.mark.parametrize("tool", ["Write", "Edit"])
+@pytest.mark.needs_symlink
 def test_write_protected_via_symlink_project_json_denied(policy: AgentAccessPolicy, tool: str) -> None:
     """`project.json` 本身被做成项目内 symlink（指向另一个项目内文件）时，仍须拒——
     防止"把入口换成 symlink"绕过 protected 区判定。仅靠 resolve 后路径比较会失配。"""
@@ -299,6 +303,7 @@ def test_write_protected_via_symlink_project_json_denied(policy: AgentAccessPoli
 
 
 @pytest.mark.parametrize("tool", ["Write", "Edit"])
+@pytest.mark.needs_symlink
 def test_write_protected_via_symlink_scripts_dir_denied(policy: AgentAccessPolicy, tool: str) -> None:
     """`scripts/` 整个目录被做成项目内 symlink 时，对其下 .json 的写入仍须拒。"""
     cwd = _cwd(policy)
@@ -314,6 +319,7 @@ def test_write_protected_via_symlink_scripts_dir_denied(policy: AgentAccessPolic
 
 
 @pytest.mark.parametrize("tool", ["Write", "Edit"])
+@pytest.mark.needs_symlink
 def test_write_protected_with_symlinked_project_cwd_denied(
     policy: AgentAccessPolicy, tmp_path: Path, tool: str
 ) -> None:
@@ -524,6 +530,7 @@ def test_build_sandbox_settings_denies_drafts_dir_not_per_episode_files(policy: 
     assert not any("episode_" in p for p in deny_write)
 
 
+@pytest.mark.needs_symlink
 def test_build_sandbox_settings_deny_write_includes_resolved_paths(policy: AgentAccessPolicy, tmp_path: Path) -> None:
     """project_cwd 是 symlink 入口时（macOS /var↔/private/var、Linux symlinked
     项目根），denyWrite 须同时枚举 raw 与 resolved 两种形式——sandbox 实现若按

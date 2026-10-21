@@ -62,7 +62,8 @@ def _connection() -> tuple[str, str]:
             os.environ.get("ARCREEL_API_TOKEN", ""), "ARCREEL_API_TOKEN"
         )
 
-    settings_path = Path.cwd() / ".arcreel" / "settings.json"
+    # as_posix：Windows 上 str(Path) 给出反斜杠路径，报错信息与测试断言的正斜杠形态失配。
+    settings_path = (Path.cwd() / ".arcreel" / "settings.json").as_posix()
     try:
         settings = _json_file(str(settings_path))
     except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:

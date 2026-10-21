@@ -7,9 +7,12 @@
 
 from __future__ import annotations
 
+import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+
+import pytest
 
 from lib.project.project_manager import ProjectManager
 from lib.project.project_schema import CURRENT_PROJECT_SCHEMA_VERSION
@@ -47,6 +50,10 @@ def _seed_reference_video_project(pm: ProjectManager, name: str, n_units: int) -
 
 
 class TestReferenceVideoConcurrentRMW:
+    @pytest.mark.skipif(
+        os.name != "posix",
+        reason="Windows 的 portalocker LK_LOCK 等 10s 后抛 EDEADLOCK：24 个线程串行过一遍深拷贝 + fsync 会超时；POSIX fcntl 阻塞锁无上限",
+    )
     def test_concurrent_append_and_asset_writeback_preserve_all(self, tmp_path: Path) -> None:
         """并发追加新 unit 与回写已有 unit 资产，二者都不丢。"""
         pm = ProjectManager(tmp_path)

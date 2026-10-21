@@ -17,6 +17,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.staticfiles import NotModifiedResponse
 
+# Windows 原生 mime 表没有 .webp：缩略图会以 application/octet-stream 下发，浏览器不渲染。
+# 存量平台表缺失同类条目时在这里补齐，guess_media_type 与 FileResponse 默认推断同口径。
+mimetypes.add_type("image/webp", ".webp")
+
 #: 带版本键（?v= / ?fp= / versions/ 快照）的 URL 内容不变，浏览器可永久复用
 IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 #: 无版本键的 URL 内容可能被原地覆盖：允许缓存，但每次使用前必须再验证（命中返回 304）

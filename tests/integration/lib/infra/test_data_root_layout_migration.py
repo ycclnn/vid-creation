@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -27,6 +28,20 @@ from lib.infra.data_root_layout import DataRootLayout
 from lib.infra.data_root_layout_migration import migrate_data_root_layout
 from lib.project.project_manager import ProjectManager
 from lib.project.project_migrations.runner import run_project_migrations
+
+
+def _windows_long_paths_enabled() -> bool:
+    """Windows 未开 LongPathsEnabled（默认关）时超长路径不可创建；其余平台恒 True。"""
+    if sys.platform != "win32":
+        return True
+    try:
+        import winreg
+
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\FileSystem")
+        value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
+        return value == 1
+    except OSError:
+        return False
 
 
 @pytest.fixture
@@ -156,7 +171,9 @@ def _write_legacy_user_memory(data_root: Path, user_id: str, files: dict[str, st
     memory_dir = data_root / ".arcreel" / "users" / user_id / "memory"
     memory_dir.mkdir(parents=True)
     for name, body in files.items():
-        (memory_dir / name).write_text(body, encoding="utf-8")
+        # newline=""：Windows 上 write_text 的默认换行翻译会把 \n 写成 \r\n，原始字节
+        # 读回时与断言的 LF 形态失配。
+        (memory_dir / name).write_text(body, encoding="utf-8", newline="")
 
 
 def _memory(data_root: Path, user_id: str) -> AgentMemoryStore:
@@ -195,6 +212,10 @@ async def test_user_memory_move_resumes_after_interruption(
     assert _memory(data_root, "default").read("b.md").decode("utf-8") == "后搬"
 
 
+@pytest.mark.skipif(
+    not _windows_long_paths_enabled(),
+    reason="SDK 转录目录把项目路径编进单段目录名，Windows 未开 LongPathsEnabled 时超出 MAX_PATH",
+)
 async def test_completed_session_import_is_not_rerun_after_migration(
     data_root: Path, session_factory: async_sessionmaker[AsyncSession], sdk_config_dir: Path
 ) -> None:

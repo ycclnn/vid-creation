@@ -580,6 +580,7 @@ def test_project_adapter_replace_failure_preserves_manifest_and_cleans_temp_file
 
 
 @pytest.mark.parametrize("force_python_link_fallback", [False, True])
+@pytest.mark.needs_symlink
 def test_project_adapter_blocks_escape_and_symlink_artifact_paths(
     tmp_path: Path,
     force_python_link_fallback: bool,
@@ -619,6 +620,7 @@ def test_project_adapter_blocks_escape_and_symlink_artifact_paths(
 
 
 @pytest.mark.skipif(os.name != "posix", reason="dir_fd traversal is the POSIX symlink-race defense")
+@pytest.mark.needs_symlink
 def test_project_adapter_blocks_parent_replaced_by_symlink_during_open(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -667,6 +669,7 @@ def test_project_adapter_blocks_parent_replaced_by_symlink_during_open(
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Python identity checks backstop platforms without O_NOFOLLOW")
+@pytest.mark.needs_symlink
 def test_project_adapter_blocks_file_symlink_swap_without_no_follow(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -872,6 +875,7 @@ def test_project_adapter_rejects_runtime_fifo_without_blocking(tmp_path: Path, r
     assert json.loads(result.stdout) == {"status": "blocked", "blocker": "manifest_unreadable"}
 
 
+@pytest.mark.needs_symlink
 def test_project_adapter_rejects_replaced_portable_project_root(tmp_path: Path) -> None:
     project = tmp_path / "project"
     project.mkdir()
@@ -944,6 +948,7 @@ def test_project_adapter_rejects_replaced_posix_project_root_identity(tmp_path: 
 
 
 @pytest.mark.skipif(os.name != "posix", reason="no-follow root descriptors bind POSIX adapter initialization")
+@pytest.mark.needs_symlink
 def test_project_adapter_rejects_project_root_symlink_swap_during_initialization(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -984,6 +989,7 @@ def test_project_adapter_reports_unavailable_opened_posix_root(tmp_path: Path) -
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Python link checks backstop platforms without O_NOFOLLOW")
+@pytest.mark.needs_symlink
 def test_project_adapter_rejects_replaced_posix_project_root_symlink_without_no_follow(
     tmp_path: Path,
 ) -> None:
@@ -1004,6 +1010,7 @@ def test_project_adapter_rejects_replaced_posix_project_root_symlink_without_no_
         adapter.get_entry(ArtifactKey.episode_script(1))
 
 
+@pytest.mark.needs_symlink
 def test_project_adapter_rejects_swapped_portable_parent(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1046,6 +1053,7 @@ def test_project_adapter_rejects_swapped_portable_parent(
 
 
 @pytest.mark.skipif(os.name != "posix", reason="dir_fd anchors manifest storage to the opened POSIX root")
+@pytest.mark.needs_symlink
 def test_project_adapter_keeps_manifest_write_on_opened_root_during_swap(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1097,6 +1105,7 @@ def test_project_adapter_keeps_manifest_write_on_opened_root_during_swap(
 
 @pytest.mark.parametrize("runtime_path", [MANIFEST_FILENAME, LOCK_FILENAME])
 @pytest.mark.parametrize("force_python_link_fallback", [False, True])
+@pytest.mark.needs_symlink
 def test_project_adapter_refuses_runtime_file_symlinks(
     tmp_path: Path,
     runtime_path: str,
@@ -1125,6 +1134,7 @@ def test_project_adapter_refuses_runtime_file_symlinks(
     assert outside.read_text(encoding="utf-8") == "do not touch"
 
 
+@pytest.mark.needs_symlink
 def test_project_adapter_rejects_portable_manifest_symlink_swap(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1166,6 +1176,7 @@ def test_project_adapter_rejects_portable_manifest_symlink_swap(
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Python identity checks backstop platforms without O_NOFOLLOW")
+@pytest.mark.needs_symlink
 def test_project_adapter_rejects_manifest_symlink_swap_without_no_follow(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1209,6 +1220,7 @@ def test_project_adapter_rejects_manifest_symlink_swap_without_no_follow(
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Python identity checks backstop platforms without O_NOFOLLOW")
+@pytest.mark.needs_symlink
 def test_project_adapter_rejects_lock_symlink_swap_without_no_follow(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1436,8 +1448,9 @@ def test_project_adapter_hashes_content_through_a_binary_descriptor(
         name = os.path.basename(os.fsdecode(path))
         if name in open_flags:
             open_flags[name].append(flags)
-        # 假标志位只用于观察请求，真实 POSIX open 不认识它。
-        return original_open(path, flags & ~fake_binary_flag, mode, dir_fd=dir_fd)
+        # 假标志位在 Windows 上就是真实的 O_BINARY：剥掉它会让 CRT 文本模式折叠 CRLF、
+        # 遇 0x1A 停读，摘要与字节哈希失配。传给真实 open，标志请求本身由下方逐条断言验证。
+        return original_open(path, flags, mode, dir_fd=dir_fd)
 
     monkeypatch.setattr("lib.artifacts.artifact_manifest.os.open", record_open)
     adapter = ProjectArtifactManifestAdapter(project, nofollow_supported=False)

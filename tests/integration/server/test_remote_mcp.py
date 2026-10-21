@@ -156,6 +156,7 @@ def _mounted(server) -> FastAPI:
     return app
 
 
+@pytest.mark.needs_symlink
 def test_remote_mcp_accepts_source_upload_sized_requests(remote_server) -> None:
     assert remote_server.settings.max_request_body_size > 300 * 1024 * 1024
 
@@ -196,6 +197,7 @@ async def _post_initialize(app: FastAPI, token: str | None = None) -> httpx.Resp
 
 
 @pytest.mark.parametrize("auth_enabled", ["true", "false"])
+@pytest.mark.needs_symlink
 async def test_remote_mcp_always_rejects_anonymous(remote_server, monkeypatch, auth_enabled: str) -> None:
     monkeypatch.setenv("AUTH_ENABLED", auth_enabled)
 
@@ -205,6 +207,7 @@ async def test_remote_mcp_always_rejects_anonymous(remote_server, monkeypatch, a
 
 
 @pytest.mark.parametrize("path", ["/mcp", "/mcp/"])
+@pytest.mark.needs_symlink
 async def test_remote_mcp_serves_endpoint_without_redirect(remote_server, path: str) -> None:
     """规范端点 ``/mcp`` 与兼容入口 ``/mcp/`` 都直接处理：不跟随 POST 重定向的客户端也能接入。"""
     app = _mounted(remote_server)
@@ -224,6 +227,7 @@ async def test_remote_mcp_serves_endpoint_without_redirect(remote_server, path: 
 @pytest.mark.parametrize(
     "metadata_path", ["/.well-known/oauth-protected-resource/mcp", "/mcp/.well-known/oauth-protected-resource"]
 )
+@pytest.mark.needs_symlink
 async def test_remote_mcp_does_not_advertise_oauth_discovery(remote_server, metadata_path: str) -> None:
     """只认静态 arc- API Key、没有授权服务器：401 是普通 Bearer challenge，也不提供受保护资源元数据。"""
     app = _mounted(remote_server)
@@ -251,6 +255,7 @@ _INITIALIZE_REQUEST = {
 }
 
 
+@pytest.mark.needs_symlink
 async def test_remote_mcp_accepts_non_loopback_host_header(remote_server) -> None:
     """任意 Host 都能到达端点：边界由每请求强制的 arc- API Key 承担，不由 Host 白名单承担。"""
     app = _mounted(remote_server)
@@ -278,6 +283,7 @@ async def test_remote_mcp_accepts_non_loopback_host_header(remote_server) -> Non
     ("origin", "allowed"),
     [("https://evil.example.com", False), ("https://arcreel.example.com", True)],
 )
+@pytest.mark.needs_symlink
 async def test_remote_mcp_mount_inherits_app_cors_allowlist(
     remote_server, monkeypatch, origin: str, allowed: bool
 ) -> None:
@@ -322,12 +328,15 @@ async def test_remote_mcp_mount_inherits_app_cors_allowlist(
 @pytest.mark.parametrize(
     "token_factory", [lambda: create_token("admin"), lambda: create_download_token("admin", "demo")]
 )
+@pytest.mark.needs_symlink
 async def test_remote_mcp_rejects_non_api_key_bearer_tokens(remote_server, token_factory) -> None:
     response = await _post_initialize(_mounted(remote_server), token_factory())
 
     assert response.status_code == 401
 
 
+@pytest.mark.needs_symlink
+@pytest.mark.needs_symlink
 async def test_remote_mcp_returns_typed_workflow_plan_and_rejects_bad_project(
     remote_server, remote_projects: ProjectManager, set_video_request_facts
 ) -> None:
@@ -479,6 +488,8 @@ async def test_remote_mcp_returns_typed_workflow_plan_and_rejects_bad_project(
         assert declared.structuredContent["problem"]["code"] == "invalid_project"
 
 
+@pytest.mark.needs_symlink
+@pytest.mark.needs_symlink
 async def test_remote_inspect_video_units_returns_contact_sheets_as_image_content(
     remote_server, remote_projects: ProjectManager
 ) -> None:
@@ -514,6 +525,8 @@ async def test_remote_inspect_video_units_returns_contact_sheets_as_image_conten
     assert base64.b64decode(images[0].data).startswith(b"\xff\xd8")
 
 
+@pytest.mark.needs_symlink
+@pytest.mark.needs_symlink
 async def test_remote_grid_list_only_returns_preview_without_a_batch(
     remote_server, remote_projects: ProjectManager
 ) -> None:
@@ -547,6 +560,8 @@ async def test_remote_grid_list_only_returns_preview_without_a_batch(
     assert isinstance(result.structuredContent["generate_grid"], str)
 
 
+@pytest.mark.needs_symlink
+@pytest.mark.needs_symlink
 async def test_remote_media_runtime_validates_shared_schema_and_forwards_nested_instruction(
     remote_batch_server, remote_projects: ProjectManager
 ) -> None:
@@ -603,6 +618,8 @@ async def test_remote_media_runtime_validates_shared_schema_and_forwards_nested_
     assert invalid.structuredContent["problem"]["code"] == "invalid_request"
 
 
+@pytest.mark.needs_symlink
+@pytest.mark.needs_symlink
 async def test_remote_media_submission_returns_complete_durable_batch_and_dedupes(
     remote_batch_server,
     remote_projects: ProjectManager,
@@ -664,6 +681,8 @@ async def test_remote_media_submission_returns_complete_durable_batch_and_dedupe
     assert reread.structuredContent["generation_batch"]["members"][0]["status"] == "cancelled"
 
 
+@pytest.mark.needs_symlink
+@pytest.mark.needs_symlink
 async def test_remote_batch_submission_reads_migration_verdict_from_fixture_root(
     remote_batch_server,
     remote_projects: ProjectManager,
@@ -692,6 +711,8 @@ async def test_remote_batch_submission_reads_migration_verdict_from_fixture_root
     assert raised.value.key == MIGRATION_FAILURE_CODE
 
 
+@pytest.mark.needs_symlink
+@pytest.mark.needs_symlink
 async def test_remote_api_keys_share_the_persisted_single_operator_owner(
     remote_batch_server,
     remote_projects: ProjectManager,
@@ -752,6 +773,7 @@ async def test_remote_api_keys_share_the_persisted_single_operator_owner(
     assert len((await queue.list_tasks(project_name="demo"))["items"]) == 1
 
 
+@pytest.mark.needs_symlink
 async def test_remote_mcp_entry_tools_share_one_projects_root(remote_server) -> None:
     app = _mounted(remote_server)
     async with (
@@ -789,6 +811,8 @@ async def test_remote_mcp_entry_tools_share_one_projects_root(remote_server) -> 
     assert uploaded.structuredContent["source"]["path"] == "source/novel.txt"
 
 
+@pytest.mark.needs_symlink
+@pytest.mark.needs_symlink
 async def test_remote_mcp_text_generation_and_script_patch_return_structured_content(
     remote_server, remote_projects: ProjectManager, video_request_facts
 ) -> None:
@@ -1013,6 +1037,8 @@ async def test_text_task_is_shared_by_remote_and_embedded_hosts_and_running_memb
         await worker.stop()
 
 
+@pytest.mark.needs_symlink
+@pytest.mark.needs_symlink
 async def test_remote_mcp_draft_preserves_explicit_null_updates(remote_server, remote_projects) -> None:
     # 尚无正式剧本：脚本规划未确认，可取回编辑副本。
     (remote_projects.get_project_path("demo") / "scripts" / "episode_1.json").unlink()

@@ -1239,6 +1239,7 @@ async def test_normalize_drama_script_rejects_an_empty_explicit_source(fake_ctx:
     assert "源文件路径不能为空" in problem_of(out).detail
 
 
+@pytest.mark.needs_symlink
 async def test_normalize_drama_script_treats_a_default_source_symlink_escape_as_no_episode_source(
     fake_ctx: ToolHarness,
 ) -> None:
